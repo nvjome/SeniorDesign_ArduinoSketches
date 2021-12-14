@@ -1,12 +1,27 @@
+/*
+ * Teensy_Filter_and_Bypass_Test.ino
+ * Nolan Jome
+ * 
+ * An example/test program to swithc between a LPF effect and a software
+ * bypass block (a custom audio block). All functions are controlled via
+ * commands isent over the serial port.
+ * 
+ * Both connections from the line input to the filter and passthrough block are defined,
+ * along with the connections at the output, but both are disconnected before the audio
+ * engine is started using AudioMemory().
+ * 
+ * The audio data is controlled using the connect and disconnect functions,
+ * controlling with audio block receives the audio data for processing. The active
+ * cord is disconnected before the other cord is connected (break before make),
+ * as the behavior of having two cords connected to one input is likely undefined.
+ */
+
 #include <Audio.h>
 #include "effect_passthrough.h"
 #include <Wire.h>
 #include <SPI.h>
 #include <SD.h>
 #include <SerialFlash.h>
-
-#define BYPASS_CH 0
-#define FILTER_CH 1
 
 // GUItool: begin automatically generated code
 AudioInputI2S            line_in;        //xy=392,368
@@ -35,6 +50,7 @@ void setup() {
   //sgtl5000_1.lineOutLevel(13);  // set output level to max
   sgtl5000_1.volume(0.3);
 
+  // default filter parameters
   filter1.frequency(1000);
   filter1.resonance(0.707);
 
@@ -42,7 +58,7 @@ void setup() {
   connectFilter();
 
   Serial.begin(115200);
-  delay(500);  // wait for USB serial connection using USB C adapter
+  delay(500);  // wait for USB serial connection when using USB C adapter
   printCommandText();
 }
 
@@ -114,6 +130,10 @@ void processSerialCommands() {
     }
   }
 }
+
+/*
+ * Functions to control the audio output and the cords between the audio blocks.
+ */
 
 void disableAudioOutput() {
   sgtl5000_1.muteHeadphone();

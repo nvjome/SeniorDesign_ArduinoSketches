@@ -1,4 +1,4 @@
-//#define USE_USB_INPUT
+//#define DEBUG_USB_INPUT
 #include <T9_Pedal_Bundle.h>
 
 void setup() {
@@ -29,6 +29,7 @@ void printCommandText() {
   Serial.println("\tB: activeate Freeverb effect");
   Serial.println("\tr: Freeverb roomsize");
   Serial.println("\td: Freeverb damping");
+  Serial.println("\tw: Freeverb wet/dry");
   Serial.println("\tS: print out various stats");
   Serial.println("\tR: reset maximum stat values");
   Serial.println("*********************************************************************************");
@@ -100,6 +101,12 @@ void processSerialCommands() {
       (*effectObjects_a[2]).modParameter2(D);
         Serial.print("Set damping to: ");
         Serial.println(D);
+    }
+    if (cmd == 'w') {
+      float W = Serial.parseFloat();
+      (*effectObjects_a[2]).modParameter3(W);
+        Serial.print("Set wet/dry to: ");
+        Serial.println(W);
     }
   }
 }

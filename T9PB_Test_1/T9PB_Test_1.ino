@@ -11,10 +11,20 @@ void setup() {
   Serial.begin(115200);
   delay(500);  // wait for USB serial connection when using USB C adapter
   printCommandText();
+
+  pinMode(13, OUTPUT);
 }
 
 void loop() {
   processSerialCommands();
+
+  if ((T9PB_peak_detect(0) >= 0.98) || (T9PB_peak_detect(1) >= 0.98)) {
+    digitalWrite(13, HIGH);
+  } else {
+    digitalWrite(13, LOW);
+  }
+
+  delay(10);
 }
 
 void printCommandText() {
@@ -32,6 +42,7 @@ void printCommandText() {
   Serial.println("\tw: Freeverb wet/dry");
   Serial.println("\tS: print out various stats");
   Serial.println("\tR: reset maximum stat values");
+  Serial.println("\tQ: print peak sample");
   Serial.println("*********************************************************************************");
 }
 
@@ -60,6 +71,12 @@ void processSerialCommands() {
       AudioMemoryUsageMaxReset();
       AudioProcessorUsageMaxReset();
       Serial.println("Maximum stat values reset");
+    }
+    if (cmd == 'Q') {
+      Serial.print("Pre: ");
+      Serial.print(T9PB_peak_detect(0));
+      Serial.print("\tPost: ");
+      Serial.println(T9PB_peak_detect(1));
     }
     if (cmd == 'P') {
       // activate bypass (effect 0)

@@ -1,3 +1,7 @@
+/*
+ * Basic program to test multiple effects.
+ * Expects the T9PB to have bypass, LPF, and freeverb effects available.
+ */
 //#define DEBUG_USB_INPUT
 #include <T9_Pedal_Bundle.h>
 

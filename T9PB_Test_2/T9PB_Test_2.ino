@@ -101,7 +101,7 @@ void process_serial_commands(int* currEffect_p, int* prevEffect_p) {
       *currEffect_p = 0;
       Serial.println("Passthrough active");
     }
-    if (cmd = 'E') {
+    if (cmd == 'E') {
       // activate arbitrary effect
       int E = Serial.parseInt();
       int tmp = change_effect(E, *currEffect_p);
@@ -112,13 +112,16 @@ void process_serial_commands(int* currEffect_p, int* prevEffect_p) {
         // valid effect was activated
         *prevEffect_p = *currEffect_p;
         *currEffect_p = tmp;
+        Serial.print(effectObjects_a[*currEffect_p]->getEffectName().c_str());
+        Serial.println(" active");
       }
     }
     if (cmd == 'P') {
       // print all available effects
       for (int i = 0; i <= NUM_EFFECTS; i++) {
-        Serial.print("1: ");
-        Serial.println((*effectObjects_a[i]).getEffectName().c_str());
+        Serial.print(i);
+        Serial.print(": ");
+        Serial.println(effectObjects_a[i]->getEffectName().c_str());
       }
     }
   }

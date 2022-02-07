@@ -11,6 +11,8 @@
 int currEffect = 0;
 int prevEffect;
 
+elapsedMillis peakCheckTime;
+
 void setup() {
   T9PB_begin();
   AudioMemory(64);
@@ -22,23 +24,16 @@ void setup() {
 
 void loop() {
   process_serial_commands(&currEffect, &prevEffect);
-}
 
-/*
-int change_effect(int nextEffect, int nowEffect) {
-  int ret = -1;
-  // only make changes if effect is valid
-  if (nextEffect >= 0 && nextEffect <= NUM_EFFECTS) {
-    // disconnect current effect
-    effectObjects_a[nowEffect]->disconnect();
-    // connect new effect
-    effectObjects_a[nextEffect]->connect();
-    ret = nextEffect;
+  if (peakCheckTime >= 100) {
+    peakCheckTime -= 100;
+    if ((T9PB_peak_detect(0) >= 0.98) || (T9PB_peak_detect(1) >= 0.98)) {
+      digitalWrite(13, HIGH);
+    } else {
+      digitalWrite(13, LOW);
+    }
   }
-  // return the active effect, or -1 for error
-  return ret;
 }
-*/
 
 void print_command_text() {
   Serial.println("********************************************************************************");

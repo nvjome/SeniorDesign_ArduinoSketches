@@ -14,19 +14,30 @@
  * Encoder B conneceted to pin 2,3
  * Encoder B button on pin 1
  * 
- * Select Switch on pin 11
- * Toggle switch on pin 12
+ * Select Switch on pin 12
+ * Toggle switch on pin 11
  * 
  * 20x4 LCD is conneceted to the second I2C port not used by the audio shield
  * SDA to pin 17
  * SCL to pin 16
  * 
  * TODO
- * Implement toggle switch functionality
+ * 
+ * Implement a memory bank of effect presets and parameter values(To work with Nolans code)
+ * 
+ * 
+ * Revision History
+ * V1  2/8/2022
+ * Base menu system created
+ * State machine implemented with 3 states
+ * Main, Preset, and Effect menus
+ * 
+ * V1.1  2/10/2022
+ * Implemented toggle switch functionality
  * Toggle switch allows you to select a "bank" of presets, and instantly swap between
  * them with a single fast press of the toggle switch
  * 
- * Implement a memory bank of effect presets and parameter values(To work with Nolan code)
+ * 
  * 
  * 
  * 
@@ -84,6 +95,7 @@ int oldMenuLevel = 0;
 int menuLevel = 0; // Stores menu level 0=Main menu, 1=Preset menu, 2=Effect menu
 boolean updated = false; // bool to determine when menu needs to be updated
 int currentPreset = 0; // Stores current preset selection 0-9
+int oldPreset = 0; // Store previous preset for menu updating functions
 int currentEffect = 0; // Stores current effect selection 0-1
 int currentEffects[2] = {0,0}; // Stores effectNames numbers for effects in selected preset
 String effectName = "LPF"; // Store currently selected effect name
@@ -102,6 +114,10 @@ String effectNames[10][3] = {{"LPF", "Cutoff", "Resonance"},{"Reverb", "Size", "
 // Effects within each preset use numbers from effectParameters
 int presetEffects[10][2] = {{4, 1},{3, 1},{2, 1},{2, 3},{8, 2},{5, 0},{5, 1},{5, 3},{7, 8}, {9, 8}};
 
+// List of presets that the toggle button will automatically switch between
+int togglePresets[3] = {0, 1, 2};
+// Variable to store what index in the toggle array is active
+int togglePresetIndex = 0;
 
 
 void setup() {
@@ -111,7 +127,9 @@ void setup() {
 
 
 void loop() {
-
+  // Encoder A position controlls most functions in the menu
+  // Encoder A is the selection encoder, the position determines what menu item is selected
+  // The variable is used in the footswitch button checks to step through the menu
   encoderAPosition = encoderA.read()/4; // Read encoderA position 4 counts per click
   encoderBPosition = encoderB.read()/4; // Read encoderB position 4 counts per click
   
@@ -120,7 +138,7 @@ void loop() {
     oldPositionA = encoderAPosition; // Store position
   } // End position update
 
-  if((encoderBPosition != oldPositionB) && (menuLevel == 2)) { // If encoderB position change, update menu only for menulevel 2
+  if((encoderBPosition != oldPositionB) && (menuLevel == 2)) { // If encoderB position change, update menu only for menulevel 2 (effect parameter changes)
     menuUpdate(); // Update Menu
     oldPositionB = encoderBPosition; // Store position
   } // End position update
@@ -130,16 +148,23 @@ void loop() {
     oldMenuLevel = menuLevel;  
   }
 
+  if(oldPreset != currentPreset){
+    menuUpdate();
+    oldPreset = currentPreset;  
+  }
+
   if(digitalRead(encoderAPin) && encoderAPress){
-    updated = false;
+    updated = false; // Updated bool used to determine if full screen needs to be updated or just certain parts depending on menu level
     encoderButtonACheck();
-    menuUpdate(); // Update Menu system
   }
   if(digitalRead(buttonAPin) & buttonAPress){
     updated = false;
     buttonACheck();
   }
-  
+  if(digitalRead(buttonBPin) & buttonBPress){
+    updated = false;
+    buttonBCheck();
+  }
 
 
 }
@@ -211,22 +236,71 @@ void buttonACheck(){
   
   releasedTime = millis(); // Check released time
   pressDelay = releasedTime - pressedTime; // Compare to pressed time
-      
+
+  // Long press logic    
   if(pressDelay > shortPressDelay){
     menuLevel++;
     if(menuLevel == 1){ // If stepping into preset menu, remember current preset
       currentPreset = encoderAPosition;
     }
     }
-    
+
+  // Short press logic
   if((pressDelay <= shortPressDelay) && pressDelay > 100){ // Only count short presses between 100ms and 500ms
     encoderAPosition++;
     encoderA.write(encoderAPosition*4);
   }
-    
+
+  // Menu level limits and wrapping
   if(menuLevel > 1){menuLevel = 0;} // Limit max menu level to 1 reset to 0
   if(menuLevel < 0){menuLevel = 0;} // Limit min menu level to 0
   buttonAPress = false;
+}
+
+
+// Button B is the toggle button
+// Short presses switch between the togglePreset[] list of presets
+// Use the select button to hover over a preset you want to add to the list
+// Long press toggle switch to add the preset to the end of the list
+// Push index 0 of the list out
+// Somehow indicate the togglePreset selected presets on LCD
+void buttonBCheck(){
+  
+  releasedTime = millis(); // Check released time
+  pressDelay = releasedTime - pressedTime; // Compare to pressed time
+
+  // Long press logic
+  if(pressDelay > shortPressDelay){
+    if(menuLevel == 0){ // Only able to add presets to toggle list in main menu
+      // Use current encoderAPosition/selected preset number and add to toggle list
+      // Remove index 0, add selected preset to the end of the togglePresets array
+      for(int i = 0; i < 2; i++){
+        togglePresets[i] = togglePresets[i+1];
+      }
+      togglePresets[2] = encoderAPosition;
+      menuUpdate();
+    }
+    }
+
+  // Short press logic
+  if((pressDelay <= shortPressDelay) && pressDelay > 100){ // Only count short presses between 100ms and 500ms
+
+
+    // Set current preset to the toggle preset
+    currentPreset = togglePresets[togglePresetIndex];
+    // Increment toggle preset index
+    togglePresetIndex++;
+    // Limit toggle preset index 0-2
+    if(togglePresetIndex > 2){togglePresetIndex = 0;}
+    if(togglePresetIndex < 0){togglePresetIndex = 2;}    
+    // Make sure we are in the preset menu state    
+    menuLevel = 1;
+    
+  }
+    
+  if(menuLevel > 1){menuLevel = 0;} // Limit max menu level to 1 reset to 0
+  if(menuLevel < 0){menuLevel = 0;} // Limit min menu level to 0
+  buttonBPress = false;
 }
 
 // Pass in current encoder position
@@ -276,9 +350,10 @@ void mainMenuDraw(int x){ // Main menu drawing, x = selected preset (0-9)
   // at scroll = 6 preset 6 is on top line, 9 on bottom line
 
   // Loop 4 times to print a preset number and name on each line as shown
-  // *P1:Preset Name
-  //  P2:Preset Name
-  //  P3:Preset Name
+  // Indicate togglePresets list with index number on right side of preset name
+  // *P1:Preset Name       1
+  //  P2:Preset Name       2
+  //  P3:Preset Name       3
   //  P4:Preset Name
   for(int i = 0; i <= 3; i++){
     lcd.setCursor(1,i);
@@ -288,7 +363,16 @@ void mainMenuDraw(int x){ // Main menu drawing, x = selected preset (0-9)
     lcd.setCursor(3,i);
     lcd.print(":");
     lcd.setCursor(4,i);
+    // Use menu scroll int to increment preset name index
     lcd.print(presetName[menuScroll+i]);
+    // Check togglePresets array to see if one of the currently displayed
+    // presets are in the list, if they are, print their index number
+    for(int j = 0; j < 3; j++){
+      if(togglePresets[j] == menuScroll+i){
+        lcd.setCursor(19, i);
+        lcd.print(j, DEC);
+      }
+    }
   }
 
   // Use * to indicate hovered/selected preset

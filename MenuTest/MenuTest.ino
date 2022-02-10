@@ -76,8 +76,9 @@ int encoderBPosition = 0; // Current value of encoder B used only for effect men
 int oldPositionB = 0;
 
 int encoderAPin = 4; // Encoder A button connected to pin 4
-boolean encoderAPress = false; // 
+boolean encoderAPress = false;
 
+// Footswitch variables
 int buttonAPin = 12;
 int buttonBPin = 11;
 boolean buttonAPress = false;
@@ -93,27 +94,23 @@ int pressDelay = 0;
 int menuScroll = 0; // Used for scrolling through the main menu
 int oldMenuLevel = 0;
 int menuLevel = 0; // Stores menu level 0=Main menu, 1=Preset menu, 2=Effect menu
-boolean updated = false; // bool to determine when menu needs to be updated
+boolean updated = false; // bool to determine when menu needs to be updated after button presses
+
+// Effect and Preset state variables
 int currentPreset = 0; // Stores current preset selection 0-9
 int oldPreset = 0; // Store previous preset for menu updating functions
 int currentEffect = 0; // Stores current effect selection 0-1
 int currentEffects[2] = {0,0}; // Stores effectNames numbers for effects in selected preset
 String effectName = "LPF"; // Store currently selected effect name
-
-
-
 // Name of each preset
 String presetName[10] = {"Preset 0", "Preset 1", "Preset 2", "Preset 3", "Preset 4", "Preset 5", "Preset 6", "Preset 7", "Preset 8", "Preset 9"};
-                               
 // Array of effect names with parameters
 // Effects in order of design report effect table, skipping auto wah
 // 0-LPF, 1-Reverb, 2-Chorus, 3-Delay, 4-ToneStack, 5-Overdrive, 6-Crush, 7-Flanger, 8-Tremolo, 9-Vibrato
 String effectNames[10][3] = {{"LPF", "Cutoff", "Resonance"},{"Reverb", "Size", "Damping"},{"Chorus", "Voices", "Depth"},{"Delay", "Time", "Taps"},
                                   {"ToneStack", "Low", "High"},{"Overdrive", "Gain", "Drive"},{"Crush", "Resolution", "Samples"},{"Flanger", "Depth", "Rate"},{"Tremolo", "Depth", "Rate"},{"Vibrato", "Depth", "Rate"}};
-
 // Effects within each preset use numbers from effectParameters
 int presetEffects[10][2] = {{4, 1},{3, 1},{2, 1},{2, 3},{8, 2},{5, 0},{5, 1},{5, 3},{7, 8}, {9, 8}};
-
 // List of presets that the toggle button will automatically switch between
 int togglePresets[3] = {0, 1, 2};
 // Variable to store what index in the toggle array is active
@@ -121,11 +118,15 @@ int togglePresetIndex = 0;
 
 
 void setup() {
-  initUI(); // Initialize LCD, Audio adapter, 
+  initUI(); // Initialize LCD, Audio adapter, Button interrupts
 }
 
 
-
+// Main loop that runs state machine menu system
+// Updates the menu when inputs are detected
+// All logic not pertaining to input checking is contained within menuUpdate and button check functions
+// Menu update function checks the current state and runs the correct menuDraw function
+// Button check functions implement the logic for each buttons specfic controls
 void loop() {
   // Encoder A position controlls most functions in the menu
   // Encoder A is the selection encoder, the position determines what menu item is selected
@@ -143,27 +144,27 @@ void loop() {
     oldPositionB = encoderBPosition; // Store position
   } // End position update
 
-  if(oldMenuLevel != menuLevel){
-    menuUpdate();
-    oldMenuLevel = menuLevel;  
+  if(oldMenuLevel != menuLevel){ // If menu level is updated by a button press
+    menuUpdate(); // Update the menu
+    oldMenuLevel = menuLevel; // Update oldMenuLevel value
   }
 
-  if(oldPreset != currentPreset){
-    menuUpdate();
-    oldPreset = currentPreset;  
+  if(oldPreset != currentPreset){ // If current preset is updated by a button press
+    menuUpdate(); // Update the menu
+    oldPreset = currentPreset; // Update the oldPreset value 
   }
 
-  if(digitalRead(encoderAPin) && encoderAPress){
+  if(digitalRead(encoderAPin) && encoderAPress){ // If the encoderA button is pressed then released
     updated = false; // Updated bool used to determine if full screen needs to be updated or just certain parts depending on menu level
-    encoderButtonACheck();
+    encoderButtonACheck(); // Determines long press or short press and updates state variables accordingly
   }
-  if(digitalRead(buttonAPin) & buttonAPress){
+  if(digitalRead(buttonAPin) & buttonAPress){ // If the select footswitch (buttonA) is pressed then released
     updated = false;
-    buttonACheck();
+    buttonACheck(); // Determines long press or short press and updates the state variables according to the select button functionality
   }
-  if(digitalRead(buttonBPin) & buttonBPress){
+  if(digitalRead(buttonBPin) & buttonBPress){ // If the toggle footswitch (buttonB) is pressed then released
     updated = false;
-    buttonBCheck();
+    buttonBCheck(); // Determines long press or short press and updates the state variables according to the toggle button functionality
   }
 
 
@@ -190,20 +191,31 @@ void initUI(){
   pinMode(encoderAPin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(encoderAPin), encoderAISR, FALLING);
 
+  // Setup select footswitch interrupt (ButtonA)
   pinMode(buttonAPin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(buttonAPin), buttonAISR, FALLING);  
 
+  // Setup toggle footswitch interrupt (ButtonB)
   pinMode(buttonBPin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(buttonBPin), buttonBISR, FALLING);
+  
   // Initialize encoder positions
   encoderA.write(0);
+  encoderB.write(0);
   
   Serial.begin(115200);
 
+  // Wait a second to show UI test text, then update menu and enter main loop
   delay(1000);
   menuUpdate();
 }
 
+// Encoder A button logic contained within
+// Encoder A button functions similar to the select footswitch
+// Encoder A button allows you to step through all the menus
+// Used to enter a preset, then select an effect, then effect parameters can be changed
+// Short press: Select currently hovered menu object increases menu level
+// Long press: Functions as a back or return button, decreases menu level
 void encoderButtonACheck(){
   
   releasedTime = millis(); // Check released time
@@ -220,9 +232,10 @@ void encoderButtonACheck(){
       
     if(menuLevel == 1){ // If stepping into preset menu, remember current preset
       currentPreset = encoderAPosition;
+      oldPreset = encoderAPosition;
     }
     if(menuLevel == 2){ // If stepping into effect menu, remember current effect
-      currentEffect = encoderAPosition;  
+      currentEffect = encoderAPosition;
     }
     }
     
@@ -232,6 +245,11 @@ void encoderButtonACheck(){
   encoderAPress = false;
 }
 
+// Select footswitch/buttonA logic contained within
+// Select footswitch allows the user to scroll through the main menu and enable presets
+// Short press: Scroll through main menu in one direction with wrap around
+// Long press: select currently hovered preset, if already in a preset then returns to main menu
+// allowing a new preset to be choosen
 void buttonACheck(){
   
   releasedTime = millis(); // Check released time
@@ -263,7 +281,8 @@ void buttonACheck(){
 // Use the select button to hover over a preset you want to add to the list
 // Long press toggle switch to add the preset to the end of the list
 // Push index 0 of the list out
-// Somehow indicate the togglePreset selected presets on LCD
+// Toggle presets are indicated by an index number on the right side of the screen
+// in the main menu
 void buttonBCheck(){
   
   releasedTime = millis(); // Check released time

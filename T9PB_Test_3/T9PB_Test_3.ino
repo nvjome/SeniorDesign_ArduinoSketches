@@ -92,7 +92,7 @@ void process_serial_commands(int* currEffect_p, int* prevEffect_p) {
     }
     if (cmd == 'B') {
       // activate bypass (effect 0)
-      T9PB_change_effect(0, *currEffect_p);
+      T9PB_change_effect(*currEffect_p, 0);
       *prevEffect_p = *currEffect_p;
       *currEffect_p = 0;
       Serial.println("Bypass active");

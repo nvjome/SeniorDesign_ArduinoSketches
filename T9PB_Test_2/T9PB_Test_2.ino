@@ -1,6 +1,6 @@
 /*
  * Basic program to test multiple effects.
- * Buils off of T9PB_Test_1, but now allows arbitrary access
+ * Builds off of T9PB_Test_1, but now allows arbitrary access
  * to any effect and effect parameter.
  */
 

@@ -116,7 +116,8 @@ void process_serial_commands(int* currEffect_p, int* prevEffect_p) {
     }
     if (cmd == 'a') {
       float p = Serial.parseFloat();
-      effectObjects_a[*currEffect_p]->modParameter1(p);
+      T9PB_change_parameter(*currEffect_p, 1, p);
+      //effectObjects_a[*currEffect_p]->modParameter1(p);
       Serial.print(T9PB_get_parameter_name(*currEffect_p, 1).c_str());
       //Serial.print(effectObjects_a[*currEffect_p]->getParameterName(1).c_str());
       Serial.print(": ");
@@ -124,7 +125,8 @@ void process_serial_commands(int* currEffect_p, int* prevEffect_p) {
     }
     if (cmd == 'b') {
       float p = Serial.parseFloat();
-      effectObjects_a[*currEffect_p]->modParameter2(p);
+      T9PB_change_parameter(*currEffect_p, 2, p);
+      //effectObjects_a[*currEffect_p]->modParameter2(p);
       Serial.print(T9PB_get_parameter_name(*currEffect_p, 2).c_str());
       //Serial.print(effectObjects_a[*currEffect_p]->getParameterName(2).c_str());
       Serial.print(": ");
@@ -132,7 +134,8 @@ void process_serial_commands(int* currEffect_p, int* prevEffect_p) {
     }
     if (cmd == 'c') {
       float p = Serial.parseFloat();
-      effectObjects_a[*currEffect_p]->modParameter3(p);
+      T9PB_change_parameter(*currEffect_p, 3, p);
+      //effectObjects_a[*currEffect_p]->modParameter3(p);
       Serial.print(T9PB_get_parameter_name(*currEffect_p, 3).c_str());
       //Serial.print(effectObjects_a[*currEffect_p]->getParameterName(3).c_str());
       Serial.print(": ");

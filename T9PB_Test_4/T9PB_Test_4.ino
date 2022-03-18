@@ -15,8 +15,9 @@ int prevEffect;
 elapsedMillis peakCheckTime;
 
 void setup() {
+  pinMode(13, OUTPUT);
   T9PB_begin();
-  AudioMemory(64);
+  AudioMemory(800);
 
   Serial.begin(115200);
   delay(500); // wait for USB serial connection when using USB C adapter

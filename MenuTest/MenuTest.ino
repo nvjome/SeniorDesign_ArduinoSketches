@@ -345,7 +345,7 @@ void menuUpdate(){
         
       case 2: // Effect Menu
         // In effect menu encoder positions directly change effect parameters 0-99
-        if(encoderAPosition > 99){encoderA.write(396); encoderAPosition = 99;} // If read position is greater than 99 set position to 99
+        if(encoderAPosition > 2){encoderA.write(8); encoderAPosition = 2;} // If read position is greater than 99 set position to 99
         if(encoderAPosition < 0){encoderA.write(0); encoderAPosition = 0;} // If read position is less than 0 set position to 0
 
         if(encoderBPosition > 99){encoderB.write(396); encoderBPosition = 99;} // If read position is greater than 99 set position to 99
@@ -441,7 +441,7 @@ void presetMenuDraw(int x){ // x is current encoder postion limited to 0-1
 
 }
 
-// Menu Level 2, draw preset and effect name on top line
+// Menu Level 2, draw effect name on top line
 // List parameters within effect
 // Preset: Preset Name
 // Effect: Effect Name
@@ -453,21 +453,47 @@ void effectMenuDraw(int x, int y){ // x is encoder A values 0-99 y is encoder B 
   // currentEffect stores the index 0-1 of the selected effect in the preset
   // effectNames[*][0] Holds the String for the name of each effect
   effectName = effectNames[currentEffects[currentEffect]][0];
+
+  menuScroll = x; // Use menuScroll variable to track preset scroll level
+  // Can select 0-9 but, only scroll until preset 9 shows on bottom line
+  if(menuScroll > 2){menuScroll = 2;}
+  if(menuScroll < 0){menuScroll = 0;}
   
   if(!updated){
   lcd.clear();
   lcd.setCursor(0,0);
-  lcd.print("Preset:"); 
-  lcd.setCursor(8,0);
-  lcd.print(presetName[currentPreset]); // Print preset name
-  lcd.setCursor(0,1);
   lcd.print("Effect:");
-  lcd.setCursor(8,1);
+  lcd.setCursor(8,0);
   lcd.print(effectName); // Print effect name
   updated = true;
   }
 
-  for(int i = 0; i < 2; i++){
+  for(int i = 1; i < 4; i++){
+    lcd.setCursor(0,i);
+    lcd.print(" ");    
+    lcd.setCursor(1,i);
+    lcd.print(effectNames[currentEffects[currentEffect]][i+1]);
+    lcd.setCursor(12,i);
+    lcd.print(":");
+    lcd.setCursor(13,i);
+    // Use menu scroll int to increment preset name index
+    lcd.print(y);
+    // Check togglePresets array to see if one of the currently displayed
+    // presets are in the list, if they are, print their index number
+    }
+  
+  // Use * to indicate hovered/selected preset
+  if(x == menuScroll){ // When selected preset = scroll level, top menu item is selected
+    lcd.setCursor(0,1);
+    lcd.print("*");
+  }
+  if(x > menuScroll){ // When selected preset is greater than scroll level, move * down for P7-P9
+    lcd.setCursor(0, x-menuScroll);
+    lcd.print("*");
+  }
+}  
+
+/*  for(int i = 0; i < 2; i++){
     lcd.setCursor(0, i+2);
     lcd.print(effectNames[currentEffects[currentEffect]][i+1]);
     lcd.setCursor(16, i+2);
@@ -475,9 +501,9 @@ void effectMenuDraw(int x, int y){ // x is encoder A values 0-99 y is encoder B 
     lcd.setCursor(16, i+2);
     if(!i){lcd.print(encoderAPosition);} // For i = 0 print encoder A position 0-99
     if(i){lcd.print(encoderBPosition);} // For i = 1 print encoder B position 0-99
-  }  
+  }  */
   
-}
+
 
 // Encoder A Button ISR
 void encoderAISR() {

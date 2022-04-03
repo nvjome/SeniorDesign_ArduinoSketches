@@ -44,8 +44,7 @@
  */
 
 
- 
-#include "effect_passthrough.h"
+#include "T9_Pedal_Bundle.h"
 #include <LiquidCrystal_I2C.h>
 #include <Audio.h>
 #include <Wire.h>
@@ -54,6 +53,11 @@
 #include <SerialFlash.h>
 #define ENCODER_USE_INTERRUPTS
 #include <Encoder.h>
+#include <string>
+
+int currEffect = 0;
+int prevEffect;
+
 
 // GUItool: begin automatically generated code
 AudioInputI2S            line_in;           //xy=388,500
@@ -100,22 +104,19 @@ boolean updated = false; // bool to determine when menu needs to be updated afte
 int currentPreset = 0; // Stores current preset selection 0-9
 int oldPreset = 0; // Store previous preset for menu updating functions
 int currentEffect = 0; // Stores current effect selection 0-1
-int currentEffects[2] = {0,0}; // Stores effectNames numbers for effects in selected preset
-String effectName = "LPF"; // Store currently selected effect name
+int parameterNum = 0;
+
 // Name of each preset
 String presetName[10] = {"Preset 0", "Preset 1", "Preset 2", "Preset 3", "Preset 4", "Preset 5", "Preset 6", "Preset 7", "Preset 8", "Preset 9"};
+
 // Array of effect names with parameters
 // Effects in order of design report effect table, skipping auto wah
 // 0-LPF, 1-Reverb, 2-Chorus, 3-Delay, 4-ToneStack, 5-Overdrive, 6-Crush, 7-Flanger, 8-Tremolo, 9-Vibrato
-String effectNames[10][3] = {{"LPF", "Cutoff", "Resonance"},{"Reverb", "Size", "Damping"},{"Chorus", "Voices", "Depth"},{"Delay", "Time", "Taps"},
-                                  {"ToneStack", "Low", "High"},{"Overdrive", "Gain", "Drive"},{"Crush", "Resolution", "Samples"},{"Flanger", "Depth", "Rate"},{"Tremolo", "Depth", "Rate"},{"Vibrato", "Depth", "Rate"}};
-// Effects within each preset use numbers from effectParameters
-int presetEffects[10][2] = {{4, 1},{3, 1},{2, 1},{2, 3},{8, 2},{5, 0},{5, 1},{5, 3},{7, 8}, {9, 8}};
-// List of presets that the toggle button will automatically switch between
+int presetEffect[10] = {0,1,2,3,4,0,1,2,3,4};
+int togglePresetIndex = 0;
 int togglePresets[3] = {0, 1, 2};
 // Variable to store what index in the toggle array is active
-int togglePresetIndex = 0;
-
+String currentEffectName;
 
 void setup() {
   initUI(); // Initialize LCD, Audio adapter, Button interrupts
@@ -172,6 +173,10 @@ void loop() {
 
 void initUI(){
 
+  T9PB_begin();
+  AudioMemory(800);
+  
+
   // Initialize LCD
   lcd.init();
   lcd.backlight();
@@ -206,7 +211,7 @@ void initUI(){
   Serial.begin(115200);
 
   // Wait a second to show UI test text, then update menu and enter main loop
-  delay(1000);
+  delay(500);
   menuUpdate();
 }
 
@@ -415,20 +420,17 @@ void presetMenuDraw(int x){ // x is current encoder postion limited to 0-1
   //Clear LCD and print preset name at top
 
   if(!updated){
-  lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print("Preset:"); 
-  lcd.setCursor(8,0);
-  lcd.print(presetName[currentPreset]);
-
-  currentEffects[0] = presetEffects[currentPreset][0];
-  currentEffects[1] = presetEffects[currentPreset][1];
-  
-  for(int i = 0; i < 2; i++){
-    lcd.setCursor(1,i + 1);
-    lcd.print(effectNames[currentEffects[i]][0]);  
-  }
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Preset:"); 
+    lcd.setCursor(8,0);
+    lcd.print(presetName[currentPreset]);
     
+    for(int i = 0; i < 1; i++){
+      lcd.setCursor(1,i + 1);
+      lcd.print(T9PB_get_effect_name(presetEffect[currentPreset]).c_str());  
+    }
+    updated = true;
   }
   // Print selection *
   lcd.setCursor(0, 1);
@@ -447,35 +449,38 @@ void presetMenuDraw(int x){ // x is current encoder postion limited to 0-1
 // Effect: Effect Name
 // Parameter 1 = Encoder A Rotation
 // Parameter 2 = Encoder B Rotation
-void effectMenuDraw(int x, int y){ // x is encoder A values 0-99 y is encoder B values 0-99
+void effectMenuDraw(int x, int y){ // x is encoder A values 0-2 y is encoder B values 0-99
   // effectName gets the String of the effect name from the effectNames list
   // currentEffects store the index 0-9 of the two effects in the preset
   // currentEffect stores the index 0-1 of the selected effect in the preset
   // effectNames[*][0] Holds the String for the name of each effect
-  effectName = effectNames[currentEffects[currentEffect]][0];
-
+  
   menuScroll = x; // Use menuScroll variable to track preset scroll level
   // Can select 0-9 but, only scroll until preset 9 shows on bottom line
-  if(menuScroll > 2){menuScroll = 2;}
-  if(menuScroll < 0){menuScroll = 0;}
+  if(x<2){menuScroll = 0;}else{menuScroll=x-2;}
   
-  if(!updated){
-  lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print("Effect:");
-  lcd.setCursor(8,0);
-  lcd.print(effectName); // Print effect name
-  updated = true;
+  
+  // if !updated code runs once per button press
+  // allows static text to be printed to LCD only once
+  // checks the number of parameters within the effect once
+  if(!updated){ 
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Effect:");
+    lcd.setCursor(8,0);
+    lcd.print(T9PB_get_effect_name(presetEffect[currentPreset]).c_str()); // Print effect name
+    parameterNum = T9PB_get_parameter_num(presetEffect[currentPreset]);
+    updated = true;
   }
 
-  for(int i = 1; i < 4; i++){
-    lcd.setCursor(0,i);
-    lcd.print(" ");    
-    lcd.setCursor(1,i);
-    lcd.print(effectNames[currentEffects[currentEffect]][i+1]);
-    lcd.setCursor(12,i);
+  for(int i = 1; i < parameterNum+1; i++){
+    lcd.setCursor(0,menuScroll + i);
+    lcd.print(" ");
+    lcd.setCursor(1,menuScroll + i);
+    lcd.print(T9PB_get_parameter_name(presetEffect[currentPreset],i).c_str());
+    lcd.setCursor(12,menuScroll + i);
     lcd.print(":");
-    lcd.setCursor(13,i);
+    lcd.setCursor(13,menuScroll + i);
     // Use menu scroll int to increment preset name index
     lcd.print(y);
     // Check togglePresets array to see if one of the currently displayed
@@ -483,14 +488,11 @@ void effectMenuDraw(int x, int y){ // x is encoder A values 0-99 y is encoder B 
     }
   
   // Use * to indicate hovered/selected preset
-  if(x == menuScroll){ // When selected preset = scroll level, top menu item is selected
-    lcd.setCursor(0,1);
-    lcd.print("*");
-  }
-  if(x > menuScroll){ // When selected preset is greater than scroll level, move * down for P7-P9
-    lcd.setCursor(0, x-menuScroll);
-    lcd.print("*");
-  }
+  lcd.setCursor(0,x+1);
+  lcd.print("*");
+
+
+  
 }  
 
 /*  for(int i = 0; i < 2; i++){
@@ -504,7 +506,6 @@ void effectMenuDraw(int x, int y){ // x is encoder A values 0-99 y is encoder B 
   }  */
   
 
-
 // Encoder A Button ISR
 void encoderAISR() {
   encoderAPress = true;
@@ -517,4 +518,105 @@ void buttonAISR() {
 void buttonBISR() {
   buttonBPress = true;
   pressedTime = millis();
+}
+
+void process_serial_commands(int* currEffect_p, int* prevEffect_p) {
+  if (Serial.available() > 0) {
+    char cmd = Serial.read();
+    if (cmd == 'V') {
+      float V = Serial.parseFloat();
+      if (V < 0.8) {
+        T9PB_hp_volume(V);
+        Serial.print("Set volume to: ");
+        Serial.println(V);
+      }
+    }
+    if (cmd == 'S') {
+      Serial.print("Memory usage: ");
+      Serial.println(AudioMemoryUsage());
+      Serial.print("Max memory usage: ");
+      Serial.println(AudioMemoryUsageMax());
+      Serial.print("CPU usage: ");
+      Serial.println(AudioProcessorUsage());
+      Serial.print("Max CPU usage: ");
+      Serial.println(AudioProcessorUsageMax());
+    }
+    if (cmd == 'R') {
+      AudioMemoryUsageMaxReset();
+      AudioProcessorUsageMaxReset();
+      Serial.println("Maximum stat values reset");
+    }
+    if (cmd == 'Q') {
+      Serial.print("Pre: ");
+      Serial.print(T9PB_peak_detect(0));
+      Serial.print("\tPost: ");
+      Serial.println(T9PB_peak_detect(1));
+    }
+    if (cmd == 'B') {
+      // activate bypass (effect 0)
+      T9PB_change_effect(*currEffect_p, 0);
+      *prevEffect_p = *currEffect_p;
+      *currEffect_p = 0;
+      Serial.println("Bypass active");
+    }
+    if (cmd == 'E') {
+      // activate arbitrary effect
+      int E = Serial.parseInt();
+      int tmp = T9PB_change_effect(*currEffect_p, E);
+      if (tmp < 0) {
+        // not a valid effect
+        Serial.println("ERROR: Invalid effect index");
+      } else{
+        // valid effect was activated
+        *prevEffect_p = *currEffect_p;
+        *currEffect_p = tmp;
+        Serial.print(T9PB_get_effect_name(*currEffect_p).c_str());
+        //Serial.print(effectObjects_a[*currEffect_p]->getEffectName().c_str());
+        Serial.println(" active");
+      }
+    }
+    if (cmd == 'a') {
+      float p = Serial.parseFloat();
+      T9PB_change_parameter(*currEffect_p, 1, p);
+      //effectObjects_a[*currEffect_p]->modParameter1(p);
+      Serial.print(T9PB_get_parameter_name(*currEffect_p, 1).c_str());
+      //Serial.print(effectObjects_a[*currEffect_p]->getParameterName(1).c_str());
+      Serial.print(": ");
+      Serial.println(p);
+    }
+    if (cmd == 'b') {
+      float p = Serial.parseFloat();
+      T9PB_change_parameter(*currEffect_p, 2, p);
+      //effectObjects_a[*currEffect_p]->modParameter2(p);
+      Serial.print(T9PB_get_parameter_name(*currEffect_p, 2).c_str());
+      //Serial.print(effectObjects_a[*currEffect_p]->getParameterName(2).c_str());
+      Serial.print(": ");
+      Serial.println(p);
+    }
+    if (cmd == 'c') {
+      float p = Serial.parseFloat();
+      T9PB_change_parameter(*currEffect_p, 3, p);
+      //effectObjects_a[*currEffect_p]->modParameter3(p);
+      Serial.print(T9PB_get_parameter_name(*currEffect_p, 3).c_str());
+      //Serial.print(effectObjects_a[*currEffect_p]->getParameterName(3).c_str());
+      Serial.print(": ");
+      Serial.println(p);
+    }
+    if (cmd == 'P') {
+      // print all available effects
+      for (int i = 0; i <= NUM_EFFECTS; i++) {
+        Serial.print(i);
+        Serial.print(": ");
+        Serial.println(T9PB_get_effect_name(i).c_str());
+      }
+    }
+    if (cmd == 'p') {
+      // print active effect parameters
+      for (int i = 1; i < 4; i++) {
+        Serial.print(i);
+        Serial.print(": ");
+        Serial.println(T9PB_get_parameter_name(*currEffect_p, i).c_str());
+      }
+    }
+  }
 }

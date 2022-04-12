@@ -55,9 +55,6 @@
 #include <Encoder.h>
 #include <string>
 
-int currEffect = 0;
-int prevEffect;
-
 
 // GUItool: begin automatically generated code
 AudioInputI2S            line_in;           //xy=388,500
@@ -66,7 +63,8 @@ AudioConnection          patchCord1(line_in, 0, line_out, 0);
 AudioConnection          patchCord2(line_in, 0, line_out, 1);
 AudioControlSGTL5000     sgtl5000_1;     //xy=497,335
 // GUItool: end automatically generated code
-
+int currEffect = 0;
+int prevEffect;
 const int myInput = AUDIO_INPUT_LINEIN;
 
 Encoder encoderA(5, 6); // Encoder A on pins 5,6
@@ -105,6 +103,9 @@ int currentPreset = 0; // Stores current preset selection 0-9
 int oldPreset = 0; // Store previous preset for menu updating functions
 int currentEffect = 0; // Stores current effect selection 0-1
 int parameterNum = 0;
+int paramMax = 0;
+int paramMin = 0;
+int paramNum = 0;
 
 // Name of each preset
 String presetName[10] = {"Preset 0", "Preset 1", "Preset 2", "Preset 3", "Preset 4", "Preset 5", "Preset 6", "Preset 7", "Preset 8", "Preset 9"};
@@ -113,6 +114,7 @@ String presetName[10] = {"Preset 0", "Preset 1", "Preset 2", "Preset 3", "Preset
 // Effects in order of design report effect table, skipping auto wah
 // 0-LPF, 1-Reverb, 2-Chorus, 3-Delay, 4-ToneStack, 5-Overdrive, 6-Crush, 7-Flanger, 8-Tremolo, 9-Vibrato
 int presetEffect[10] = {0,1,2,3,4,0,1,2,3,4};
+int presetParams[10][3] = {{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0}};
 int togglePresetIndex = 0;
 int togglePresets[3] = {0, 1, 2};
 // Variable to store what index in the toggle array is active
@@ -138,6 +140,10 @@ void loop() {
   if(encoderAPosition != oldPositionA) { // If encoderA position change, update menu   
     menuUpdate(); // Update Menu
     oldPositionA = encoderAPosition; // Store position
+    if(menuLevel == 2){
+      encoderBPosition = presetParams[currentPreset][encoderAPosition];
+      encoderB.write(presetParams[currentPreset][encoderAPosition] * 4);
+      }
   } // End position update
 
   if((encoderBPosition != oldPositionB) && (menuLevel == 2)) { // If encoderB position change, update menu only for menulevel 2 (effect parameter changes)
@@ -238,9 +244,10 @@ void encoderButtonACheck(){
     if(menuLevel == 1){ // If stepping into preset menu, remember current preset
       currentPreset = encoderAPosition;
       oldPreset = encoderAPosition;
+      currentEffect = presetEffect[encoderAPosition];
     }
     if(menuLevel == 2){ // If stepping into effect menu, remember current effect
-      currentEffect = encoderAPosition;
+      
     }
     }
     
@@ -329,6 +336,7 @@ void buttonBCheck(){
 
 // Pass in current encoder position
 void menuUpdate(){
+
   switch(menuLevel){ // Call correct menu update function based on menu level
     
       case 0: // Main Menu
@@ -339,9 +347,9 @@ void menuUpdate(){
         break;
         
       case 1: // Preset Menu
-        // In preset menu selection is limited to the two effects 0-1, with wrap around
-        if(encoderAPosition > 1){encoderA.write(0); encoderAPosition = 0;} // If read position is greater than 1 set position to 0
-        if(encoderAPosition < 0){encoderA.write(4); encoderAPosition = 1;} // If read position is less than 0 set position to 1
+        // In preset menu selection is limited to one effects 0
+        if(encoderAPosition > 0){encoderA.write(0); encoderAPosition = 0;} // If read position is greater than 1 set position to 0
+        if(encoderAPosition < 0){encoderA.write(0); encoderAPosition = 0;} // If read position is less than 0 set position to 1
         presetMenuDraw(encoderAPosition);
         
         // Insert effect wiring commands here
@@ -350,18 +358,36 @@ void menuUpdate(){
         
       case 2: // Effect Menu
         // In effect menu encoder positions directly change effect parameters 0-99
-        if(encoderAPosition > 2){encoderA.write(8); encoderAPosition = 2;} // If read position is greater than 99 set position to 99
+        paramNum = T9PB_get_parameter_num(currentEffect) - 1;
+        if(encoderAPosition > paramNum){encoderA.write(paramNum*4); encoderAPosition = paramNum;} // If read position is greater than 2 set position to 0
         if(encoderAPosition < 0){encoderA.write(0); encoderAPosition = 0;} // If read position is less than 0 set position to 0
-
-        if(encoderBPosition > 99){encoderB.write(396); encoderBPosition = 99;} // If read position is greater than 99 set position to 99
-        if(encoderBPosition < 0){encoderB.write(0); encoderBPosition = 0;} // If read position is less than 0 set position to 0        
+        
+        paramMax = T9PB_get_parameter_max(currentEffect, encoderAPosition+1);
+        paramMin = T9PB_get_parameter_min(currentEffect, encoderAPosition+1);
+        
+        if(encoderBPosition > paramMax){encoderB.write(paramMax*4); encoderBPosition = paramMax;} // If read position is greater than 99 set position to 99
+        if(encoderBPosition < paramMin){encoderB.write(paramMin*4); encoderBPosition = paramMin;} // If read position is less than 0 set position to 0       
+        presetParams[currentPreset][encoderAPosition] = encoderBPosition;
         effectMenuDraw(encoderAPosition, encoderBPosition);
-
+        
         // Insert effect parameter change commands here
         
         break;
   }
-}
+  Serial.print("Current Effect: ");
+  Serial.println(currentEffect, DEC);
+  Serial.print("EncoderAPos: ");
+  Serial.println(encoderAPosition, DEC);
+  Serial.print("EncoderBPos: ");
+  Serial.println(encoderBPosition, DEC); 
+  Serial.print("ParamMin: ");
+  Serial.println(paramMin, DEC);
+  Serial.print("ParamMax: ");
+  Serial.println(paramMax, DEC); 
+  Serial.print("ParamNum: ");
+  Serial.println(paramNum, DEC);   
+ }
+
 
 
 void mainMenuDraw(int x){ // Main menu drawing, x = selected preset (0-9)
@@ -481,8 +507,7 @@ void effectMenuDraw(int x, int y){ // x is encoder A values 0-2 y is encoder B v
     lcd.setCursor(12,menuScroll + i);
     lcd.print(":");
     lcd.setCursor(13,menuScroll + i);
-    // Use menu scroll int to increment preset name index
-    lcd.print(y);
+    lcd.print(presetParams[currentPreset][i-1]);
     // Check togglePresets array to see if one of the currently displayed
     // presets are in the list, if they are, print their index number
     }

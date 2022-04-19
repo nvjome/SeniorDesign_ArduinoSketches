@@ -54,14 +54,11 @@
 #define ENCODER_USE_INTERRUPTS
 #include <Encoder.h>
 #include <string>
+#include <EEPROM.h>
+
+unsigned int EEPROMParameters = 0;
 
 
-// GUItool: begin automatically generated code
-AudioInputI2S            line_in;           //xy=388,500
-AudioOutputI2S           line_out;           //xy=615,514
-AudioConnection          patchCord1(line_in, 0, line_out, 0);
-AudioConnection          patchCord2(line_in, 0, line_out, 1);
-AudioControlSGTL5000     sgtl5000_1;     //xy=497,335
 // GUItool: end automatically generated code
 int currEffect = 0;
 int prevEffect;
@@ -79,6 +76,8 @@ int oldPositionB = 0;
 
 int encoderAPin = 4; // Encoder A button connected to pin 4
 boolean encoderAPress = false;
+int encoderBPin = 1; // Encoder A button connected to pin 1
+boolean encoderBPress = false;
 
 // Footswitch variables
 int buttonAPin = 12;
@@ -106,15 +105,16 @@ int parameterNum = 0;
 int paramMax = 0;
 int paramMin = 0;
 int paramNum = 0;
+int effectChange = 0;
+int paramChange = 0;
 
 // Name of each preset
 String presetName[10] = {"Preset 0", "Preset 1", "Preset 2", "Preset 3", "Preset 4", "Preset 5", "Preset 6", "Preset 7", "Preset 8", "Preset 9"};
 
-// Array of effect names with parameters
 // Effects in order of design report effect table, skipping auto wah
-// 0-LPF, 1-Reverb, 2-Chorus, 3-Delay, 4-ToneStack, 5-Overdrive, 6-Crush, 7-Flanger, 8-Tremolo, 9-Vibrato
+// 0-Bypass, 1-LPF, 2-Reverb, 3-Tremelo, 4-Delay
 int presetEffect[10] = {0,1,2,3,4,0,1,2,3,4};
-int presetParams[10][3] = {{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0}};
+byte presetParams[10][3] = {{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0}};
 int togglePresetIndex = 0;
 int togglePresets[3] = {0, 1, 2};
 // Variable to store what index in the toggle array is active
@@ -122,6 +122,7 @@ String currentEffectName;
 
 void setup() {
   initUI(); // Initialize LCD, Audio adapter, Button interrupts
+  initEEPROM();
 }
 
 
@@ -138,12 +139,16 @@ void loop() {
   encoderBPosition = encoderB.read()/4; // Read encoderB position 4 counts per click
   
   if(encoderAPosition != oldPositionA) { // If encoderA position change, update menu   
-    menuUpdate(); // Update Menu
+    
     oldPositionA = encoderAPosition; // Store position
     if(menuLevel == 2){
+      paramNum = T9PB_get_parameter_num(currentEffect) - 1;
+      if(encoderAPosition > paramNum){encoderA.write(paramNum*4); encoderAPosition = paramNum;} // If read position is greater than 2 set position to 0
+      if(encoderAPosition < 0){encoderA.write(0); encoderAPosition = 0;}
       encoderBPosition = presetParams[currentPreset][encoderAPosition];
       encoderB.write(presetParams[currentPreset][encoderAPosition] * 4);
       }
+    menuUpdate(); // Update Menu  
   } // End position update
 
   if((encoderBPosition != oldPositionB) && (menuLevel == 2)) { // If encoderB position change, update menu only for menulevel 2 (effect parameter changes)
@@ -165,6 +170,11 @@ void loop() {
     updated = false; // Updated bool used to determine if full screen needs to be updated or just certain parts depending on menu level
     encoderButtonACheck(); // Determines long press or short press and updates state variables accordingly
   }
+  if(digitalRead(encoderBPin) && encoderBPress){ // If the encoderA button is pressed then released
+    updated = false; // Updated bool used to determine if full screen needs to be updated or just certain parts depending on menu level
+    encoderButtonBCheck(); // Determines long press or short press and updates state variables accordingly
+  }
+  
   if(digitalRead(buttonAPin) & buttonAPress){ // If the select footswitch (buttonA) is pressed then released
     updated = false;
     buttonACheck(); // Determines long press or short press and updates the state variables according to the select button functionality
@@ -180,7 +190,7 @@ void loop() {
 void initUI(){
 
   T9PB_begin();
-  AudioMemory(800);
+  AudioMemory(500);
   
 
   // Initialize LCD
@@ -191,16 +201,20 @@ void initUI(){
   lcd.print("T9 UI Test");
 
   // Setup audio passthrough
-  AudioMemory(40);
-  sgtl5000_1.enable();
-  sgtl5000_1.inputSelect(myInput);
-  sgtl5000_1.lineInLevel(0);
+  //AudioMemory(40);
+  //sgtl5000_1.enable();
+  //sgtl5000_1.inputSelect(myInput);
+  //sgtl5000_1.lineInLevel(0);
   //sgtl5000_1.lineOutLevel(13);
-  sgtl5000_1.volume(0.7);
+  //sgtl5000_1.volume(0.3);
 
   // Setup encoderA button interrupt
   pinMode(encoderAPin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(encoderAPin), encoderAISR, FALLING);
+
+  // Setup encoderB button interrupt
+  pinMode(encoderBPin, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(encoderBPin), encoderBISR, FALLING);
 
   // Setup select footswitch interrupt (ButtonA)
   pinMode(buttonAPin, INPUT_PULLUP);
@@ -219,6 +233,21 @@ void initUI(){
   // Wait a second to show UI test text, then update menu and enter main loop
   delay(500);
   menuUpdate();
+}
+
+void initEEPROM(){
+  for(int i = 0; i<10; i++){
+    for(int j = 0; j<3; j++){        
+      presetParams[i][j] = EEPROM.read(i*3 + j);
+    }
+  }
+}
+void saveEEPROM(){
+  for(int i = 0; i<10; i++){
+    for(int j = 0; j<3; j++){
+      EEPROM.write(i*3 + j, presetParams[i][j]);
+    }
+  }  
 }
 
 // Encoder A button logic contained within
@@ -242,6 +271,7 @@ void encoderButtonACheck(){
     menuLevel++; // Short press = select/step into button
       
     if(menuLevel == 1){ // If stepping into preset menu, remember current preset
+      effectChange = T9PB_change_effect(currentEffect, presetEffect[encoderAPosition]);
       currentPreset = encoderAPosition;
       oldPreset = encoderAPosition;
       currentEffect = presetEffect[encoderAPosition];
@@ -255,6 +285,21 @@ void encoderButtonACheck(){
   if(menuLevel < 0){menuLevel = 0;} // Limit min menu level to 0
     
   encoderAPress = false;
+}
+
+void encoderButtonBCheck(){
+  
+  releasedTime = millis(); // Check released time
+  pressDelay = releasedTime - pressedTime; // Compare to pressed time
+
+  // If encoder button is pressed wait till unpressed and check time
+  // If encoder is short pressed, step into next menu level
+  // If encoder is long pressed, return to previous menu level
+      
+  if(pressDelay > shortPressDelay){saveEEPROM(); Serial.print("saved");}
+
+    
+  encoderBPress = false;
 }
 
 // Select footswitch/buttonA logic contained within
@@ -358,9 +403,9 @@ void menuUpdate(){
         
       case 2: // Effect Menu
         // In effect menu encoder positions directly change effect parameters 0-99
-        paramNum = T9PB_get_parameter_num(currentEffect) - 1;
-        if(encoderAPosition > paramNum){encoderA.write(paramNum*4); encoderAPosition = paramNum;} // If read position is greater than 2 set position to 0
-        if(encoderAPosition < 0){encoderA.write(0); encoderAPosition = 0;} // If read position is less than 0 set position to 0
+        //paramNum = T9PB_get_parameter_num(currentEffect) - 1;
+        //if(encoderAPosition > paramNum){encoderA.write(paramNum*4); encoderAPosition = paramNum;} // If read position is greater than 2 set position to 0
+        //if(encoderAPosition < 0){encoderA.write(0); encoderAPosition = 0;} // If read position is less than 0 set position to 0
         
         paramMax = T9PB_get_parameter_max(currentEffect, encoderAPosition+1);
         paramMin = T9PB_get_parameter_min(currentEffect, encoderAPosition+1);
@@ -371,7 +416,7 @@ void menuUpdate(){
         effectMenuDraw(encoderAPosition, encoderBPosition);
         
         // Insert effect parameter change commands here
-        
+        paramChange = T9PB_change_parameter(currentEffect, encoderAPosition + 1, encoderBPosition);
         break;
   }
   Serial.print("Current Effect: ");
@@ -386,6 +431,10 @@ void menuUpdate(){
   Serial.println(paramMax, DEC); 
   Serial.print("ParamNum: ");
   Serial.println(paramNum, DEC);   
+  Serial.print("EffectChange: ");
+  Serial.println(effectChange, DEC);   
+  Serial.print("ParamChange: ");
+  Serial.println(paramChange, DEC);   
  }
 
 
@@ -475,14 +524,10 @@ void presetMenuDraw(int x){ // x is current encoder postion limited to 0-1
 // Effect: Effect Name
 // Parameter 1 = Encoder A Rotation
 // Parameter 2 = Encoder B Rotation
-void effectMenuDraw(int x, int y){ // x is encoder A values 0-2 y is encoder B values 0-99
-  // effectName gets the String of the effect name from the effectNames list
-  // currentEffects store the index 0-9 of the two effects in the preset
-  // currentEffect stores the index 0-1 of the selected effect in the preset
-  // effectNames[*][0] Holds the String for the name of each effect
+void effectMenuDraw(int x, int y){ // x is encoder A values 0-2 y is encoder B values paramMin-paramMax
   
   menuScroll = x; // Use menuScroll variable to track preset scroll level
-  // Can select 0-9 but, only scroll until preset 9 shows on bottom line
+
   if(x<2){menuScroll = 0;}else{menuScroll=x-2;}
   
   
@@ -507,7 +552,10 @@ void effectMenuDraw(int x, int y){ // x is encoder A values 0-2 y is encoder B v
     lcd.setCursor(12,menuScroll + i);
     lcd.print(":");
     lcd.setCursor(13,menuScroll + i);
-    lcd.print(presetParams[currentPreset][i-1]);
+    lcd.print("    ");
+    lcd.setCursor(13,menuScroll + i);
+    if(currentEffect == 1){lcd.print((presetParams[currentPreset][i-1])*10);}
+    else{lcd.print(presetParams[currentPreset][i-1]);}
     // Check togglePresets array to see if one of the currently displayed
     // presets are in the list, if they are, print their index number
     }
@@ -531,11 +579,20 @@ void effectMenuDraw(int x, int y){ // x is encoder A values 0-2 y is encoder B v
   }  */
   
 
+
+
 // Encoder A Button ISR
 void encoderAISR() {
   encoderAPress = true;
   pressedTime = millis();
 }
+
+// Encoder B Button ISR
+void encoderBISR() {
+  encoderBPress = true;
+  pressedTime = millis();
+}
+
 void buttonAISR() {
   buttonAPress = true;
   pressedTime = millis();

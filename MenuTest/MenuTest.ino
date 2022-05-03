@@ -112,7 +112,7 @@ int effectChange = 0;
 int paramChange = 0;
 
 // Name of each preset
-String presetName[10] = {"Preset 0", "Preset 1", "Preset 2", "Preset 3", "Preset 4", "Preset 5", "Preset 6", "Preset 7", "Preset 8", "Preset 9"};
+String presetName[11] = {"Preset 0", "Preset 1", "Preset 2", "Preset 3", "Preset 4", "Preset 5", "Preset 6", "Preset 7", "Preset 8", "Preset 9","Settings"};
 
 // Effects in order of design report effect table, skipping auto wah
 // 0-Bypass, 1-LPF, 2-Reverb, 3-Tremelo, 4-Delay
@@ -274,31 +274,39 @@ void encoderButtonACheck(){
   
   releasedTime = millis(); // Check released time
   pressDelay = releasedTime - pressedTime; // Compare to pressed time
-
-  // If encoder button is pressed wait till unpressed and check time
-  // If encoder is short pressed, step into next menu level
-  // If encoder is long pressed, return to previous menu level
-      
-  if(pressDelay > shortPressDelay){menuLevel--;} // Long press = back/return button
+  
+  if(pressDelay > shortPressDelay){
+    menuLevel--;
+    if(menuLevel > 2){menuLevel = 2;} // Limit max menu level to 2
+    if(menuLevel < 0){menuLevel = 0;} // Limit min menu level to 0  
+    encoderAPress = false;        
+  } // Long press = back/return button
     
   if((pressDelay <= shortPressDelay) && pressDelay > 100){ // Only count short presses between 100ms and 500ms
     menuLevel++; // Short press = select/step into button
-      
+
     if(menuLevel == 1){ // If stepping into preset menu, remember current preset
+      if(encoderAPosition == 10){
+          menuLevel = 3;
+          encoderAPress = false;
+          return;
+      }  
+      
       effectChange = T9PB_change_effect(currentEffect, presetEffect[encoderAPosition]);
       currentPreset = encoderAPosition;
       oldPreset = encoderAPosition;
       currentEffect = presetEffect[encoderAPosition];
     }
+    
     if(menuLevel == 2){ // If stepping into effect menu, remember current effect
+    }
+    if(menuLevel > 2){menuLevel = 2;} // Limit max menu level to 2
+    if(menuLevel < 0){menuLevel = 0;} // Limit min menu level to 0
       
-    }
+    encoderAPress = false;    
     }
     
-  if(menuLevel > 2){menuLevel = 2;} // Limit max menu level to 2
-  if(menuLevel < 0){menuLevel = 0;} // Limit min menu level to 0
-    
-  encoderAPress = false;
+
 }
 
 void encoderButtonBCheck(){
@@ -401,8 +409,8 @@ void menuUpdate(){
     
       case 0: // Main Menu
         // In main menu selection is limited to 0-9, with wrap around
-        if(encoderAPosition > 9){encoderA.write(0); encoderAPosition = 0;} // If read position is greater than 9 set position to 0
-        if(encoderAPosition < 0){encoderA.write(36); encoderAPosition = 9;} // If read position is less than 0 set position to 9
+        if(encoderAPosition > 10){encoderA.write(0); encoderAPosition = 0;} // If read position is greater than 9 set position to 0
+        if(encoderAPosition < 0){encoderA.write(40); encoderAPosition = 10;} // If read position is less than 0 set position to 9
         mainMenuDraw(encoderAPosition);
         break;
         
@@ -433,6 +441,19 @@ void menuUpdate(){
         // Insert effect parameter change commands here
         paramChange = T9PB_change_parameter(currentEffect, encoderAPosition + 1, encoderBPosition);
         break;
+
+      case 3:
+        // In main menu selection is limited to 0-9, with wrap around
+        if(encoderAPosition > 9){encoderA.write(0); encoderAPosition = 0;} // If read position is greater than 9 set position to 0
+        if(encoderAPosition < 0){encoderA.write(36); encoderAPosition = 9;} // If read position is less than 0 set position to 9
+        
+        if(encoderBPosition > 4){encoderB.write(0); encoderBPosition = 0;} // If read position is greater than 9 set position to 0
+        if(encoderBPosition < 0){encoderB.write(16); encoderBPosition = 4;} // If read position is less than 0 set position to 9
+        
+        settingsMenuDraw(encoderAPosition, encoderBPosition);
+        
+        break;
+              
   }
   Serial.print("Current Effect: ");
   Serial.println(currentEffect, DEC);
@@ -450,8 +471,6 @@ void menuUpdate(){
   Serial.println(effectChange, DEC);   
   Serial.print("ParamChange: ");
   Serial.println(paramChange, DEC);   
-  Serial.print("ParamSave: ");
-  Serial.println(presetParams[1][0], DEC);   
  }
 
 
@@ -460,7 +479,7 @@ void mainMenuDraw(int x){ // Main menu drawing, x = selected preset (0-9)
   lcd.clear();
   menuScroll = x; // Use menuScroll variable to track preset scroll level
   // Can select 0-9 but, only scroll until preset 9 shows on bottom line
-  if(menuScroll > 6){menuScroll = 6;}
+  if(menuScroll > 7){menuScroll = 7;}
   if(menuScroll < 0){menuScroll = 0;}
   // Menu scroll limits, at scroll = 0 preset 0 is on top line
   // at scroll = 6 preset 6 is on top line, 9 on bottom line
@@ -592,7 +611,24 @@ void effectMenuDraw(int x, int y){ // x is encoder A values 0-2 y is encoder B v
     if(i){lcd.print(encoderBPosition);} // For i = 1 print encoder B position 0-99
   }  */
   
-
+void settingsMenuDraw(int x, int y){
+  if(!updated){ 
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print(presetName[10]); // Print effect name
+    updated = true;
+  }  
+    lcd.setCursor(0,1);
+    lcd.print("Edit Preset Effects");
+    lcd.setCursor(0,2);
+    lcd.print("P:");    
+    lcd.setCursor(2,2);
+    lcd.print(presetName[x]);
+    lcd.setCursor(0,3);
+    lcd.print("E:");    
+    lcd.setCursor(2,3);
+    lcd.print(T9PB_get_effect_name(y).c_str());             
+  }
 
 
 // Encoder A Button ISR

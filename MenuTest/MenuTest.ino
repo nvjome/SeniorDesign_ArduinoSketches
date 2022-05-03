@@ -64,8 +64,11 @@ int currEffect = 0;
 int prevEffect;
 const int myInput = AUDIO_INPUT_LINEIN;
 
+int encoderAPin = 4; // Encoder A button connected to pin 4
 Encoder encoderA(5, 6); // Encoder A on pins 5,6
+int encoderBPin = 1; // Encoder A button connected to pin 1
 Encoder encoderB(2, 3); // Encoder B on pins 2,3
+
 LiquidCrystal_I2C lcd(0x27, 20, 4);  // set the LCD address to 0x27 for a 16 chars and 2 line display
 
 // Encoder variables
@@ -74,9 +77,9 @@ int oldPositionA = 0;
 int encoderBPosition = 0; // Current value of encoder B used only for effect menu parameter B changes
 int oldPositionB = 0;
 
-int encoderAPin = 4; // Encoder A button connected to pin 4
+
 boolean encoderAPress = false;
-int encoderBPin = 1; // Encoder A button connected to pin 1
+
 boolean encoderBPress = false;
 
 // Footswitch variables
@@ -114,7 +117,7 @@ String presetName[10] = {"Preset 0", "Preset 1", "Preset 2", "Preset 3", "Preset
 // Effects in order of design report effect table, skipping auto wah
 // 0-Bypass, 1-LPF, 2-Reverb, 3-Tremelo, 4-Delay
 int presetEffect[10] = {0,1,2,3,4,0,1,2,3,4};
-byte presetParams[10][3] = {{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0}};
+int presetParams[10][3] = {{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0}};
 int togglePresetIndex = 0;
 int togglePresets[3] = {0, 1, 2};
 // Variable to store what index in the toggle array is active
@@ -138,7 +141,7 @@ void loop() {
   encoderAPosition = encoderA.read()/4; // Read encoderA position 4 counts per click
   encoderBPosition = encoderB.read()/4; // Read encoderB position 4 counts per click
   
-  if(encoderAPosition != oldPositionA) { // If encoderA position change, update menu   
+  if(encoderAPosition != oldPositionA) { // If encoderA position change, update menu, update knob value constraints based on number of parameters in effect
     
     oldPositionA = encoderAPosition; // Store position
     if(menuLevel == 2){
@@ -159,11 +162,16 @@ void loop() {
   if(oldMenuLevel != menuLevel){ // If menu level is updated by a button press
     menuUpdate(); // Update the menu
     oldMenuLevel = menuLevel; // Update oldMenuLevel value
+    encoderBPosition = presetParams[currentPreset][encoderAPosition];
+    encoderB.write(presetParams[currentPreset][encoderAPosition] * 4);
   }
 
   if(oldPreset != currentPreset){ // If current preset is updated by a button press
     menuUpdate(); // Update the menu
     oldPreset = currentPreset; // Update the oldPreset value 
+    paramChange = T9PB_change_parameter(presetEffect[currentPreset], 0, presetParams[currentPreset][0]);
+    paramChange = T9PB_change_parameter(presetEffect[currentPreset], 1, presetParams[currentPreset][1]);
+    paramChange = T9PB_change_parameter(presetEffect[currentPreset], 2, presetParams[currentPreset][2]);
   }
 
   if(digitalRead(encoderAPin) && encoderAPress){ // If the encoderA button is pressed then released
@@ -238,14 +246,20 @@ void initUI(){
 void initEEPROM(){
   for(int i = 0; i<10; i++){
     for(int j = 0; j<3; j++){        
-      presetParams[i][j] = EEPROM.read(i*3 + j);
+      byte paramByteA = EEPROM.read(i*6 + j*2);
+      byte paramByteB = EEPROM.read(i*6 + j*2 + 1);
+      presetParams[i][j] = paramByteA + (paramByteB * 256);
     }
   }
 }
 void saveEEPROM(){
   for(int i = 0; i<10; i++){
     for(int j = 0; j<3; j++){
-      EEPROM.write(i*3 + j, presetParams[i][j]);
+      int paramVal = presetParams[i][j];
+      byte paramByteA = paramVal % 256;
+      byte paramByteB = paramVal / 256;
+      EEPROM.write(i*6 + j*2, paramByteA);
+      EEPROM.write(i*6 + j*2 + 1, paramByteB);
     }
   }  
 }
@@ -296,7 +310,8 @@ void encoderButtonBCheck(){
   // If encoder is short pressed, step into next menu level
   // If encoder is long pressed, return to previous menu level
       
-  if(pressDelay > shortPressDelay){saveEEPROM(); Serial.print("saved");}
+  if(pressDelay > shortPressDelay){saveEEPROM(); 
+  Serial.print("saved");}
 
     
   encoderBPress = false;
@@ -435,6 +450,8 @@ void menuUpdate(){
   Serial.println(effectChange, DEC);   
   Serial.print("ParamChange: ");
   Serial.println(paramChange, DEC);   
+  Serial.print("ParamSave: ");
+  Serial.println(presetParams[1][0], DEC);   
  }
 
 
@@ -554,10 +571,7 @@ void effectMenuDraw(int x, int y){ // x is encoder A values 0-2 y is encoder B v
     lcd.setCursor(13,menuScroll + i);
     lcd.print("    ");
     lcd.setCursor(13,menuScroll + i);
-    if(currentEffect == 1){lcd.print((presetParams[currentPreset][i-1])*10);}
-    else{lcd.print(presetParams[currentPreset][i-1]);}
-    // Check togglePresets array to see if one of the currently displayed
-    // presets are in the list, if they are, print their index number
+    lcd.print(presetParams[currentPreset][i-1]);
     }
   
   // Use * to indicate hovered/selected preset

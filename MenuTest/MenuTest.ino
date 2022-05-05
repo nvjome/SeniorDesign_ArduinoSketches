@@ -114,7 +114,6 @@ int paramChange = 0;
 // Name of each preset
 String presetName[11] = {"Preset 0", "Preset 1", "Preset 2", "Preset 3", "Preset 4", "Preset 5", "Preset 6", "Preset 7", "Preset 8", "Preset 9","Settings"};
 
-// Effects in order of design report effect table, skipping auto wah
 // 0-Bypass, 1-LPF, 2-Reverb, 3-Tremelo, 4-Delay
 int presetEffect[10] = {0,1,2,3,4,0,1,2,3,4};
 int presetParams[10][3] = {{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0}};
@@ -142,21 +141,34 @@ void loop() {
   encoderBPosition = encoderB.read()/4; // Read encoderB position 4 counts per click
   
   if(encoderAPosition != oldPositionA) { // If encoderA position change, update menu, update knob value constraints based on number of parameters in effect
-    
     oldPositionA = encoderAPosition; // Store position
-    if(menuLevel == 2){
+    if(menuLevel == 2){ // If entering the parameter menu limit encoder A values to number of parameters
       paramNum = T9PB_get_parameter_num(currentEffect) - 1;
       if(encoderAPosition > paramNum){encoderA.write(paramNum*4); encoderAPosition = paramNum;} // If read position is greater than 2 set position to 0
       if(encoderAPosition < 0){encoderA.write(0); encoderAPosition = 0;}
-      encoderBPosition = presetParams[currentPreset][encoderAPosition];
+      encoderBPosition = presetParams[currentPreset][encoderAPosition]; // If in parameter menu, update encoderB position to selected parameter value
       encoderB.write(presetParams[currentPreset][encoderAPosition] * 4);
       }
+
+    if(menuLevel == 3){
+      encoderBPosition = presetEffect[encoderAPosition]; // If in parameter menu, update encoderB position to selected parameter value
+      encoderB.write(presetEffect[encoderAPosition] * 4);        
+    }  
     menuUpdate(); // Update Menu  
   } // End position update
 
   if((encoderBPosition != oldPositionB) && (menuLevel == 2)) { // If encoderB position change, update menu only for menulevel 2 (effect parameter changes)
     menuUpdate(); // Update Menu
     oldPositionB = encoderBPosition; // Store position
+  } // End position update
+
+  if((encoderBPosition != oldPositionB) && (menuLevel == 3)) { // If encoderB position change, update menu only for menulevel 3 (effect parameter changes)
+    menuUpdate(); // Update Menu
+    presetEffect[encoderAPosition] = encoderBPosition;
+    oldPositionB = encoderBPosition; // Store position
+    for(int i = 0; i<3; i++){
+    presetParams[encoderAPosition][i] = 10;  
+    }
   } // End position update
 
   if(oldMenuLevel != menuLevel){ // If menu level is updated by a button press
@@ -167,18 +179,18 @@ void loop() {
   }
 
   if(oldPreset != currentPreset){ // If current preset is updated by a button press
-    menuUpdate(); // Update the menu
+    // menuUpdate(); // Update the menu
     oldPreset = currentPreset; // Update the oldPreset value 
-    paramChange = T9PB_change_parameter(presetEffect[currentPreset], 0, presetParams[currentPreset][0]);
-    paramChange = T9PB_change_parameter(presetEffect[currentPreset], 1, presetParams[currentPreset][1]);
-    paramChange = T9PB_change_parameter(presetEffect[currentPreset], 2, presetParams[currentPreset][2]);
+    for(int i = 0; i< T9PB_get_parameter_num(currentEffect); i++){
+    paramChange = T9PB_change_parameter(presetEffect[currentPreset], i, presetParams[currentPreset][i]);  
+    }
   }
 
-  if(digitalRead(encoderAPin) && encoderAPress){ // If the encoderA button is pressed then released
+  if(digitalRead(encoderAPin) & encoderAPress){ // If the encoderA button is pressed then released
     updated = false; // Updated bool used to determine if full screen needs to be updated or just certain parts depending on menu level
     encoderButtonACheck(); // Determines long press or short press and updates state variables accordingly
   }
-  if(digitalRead(encoderBPin) && encoderBPress){ // If the encoderA button is pressed then released
+  if(digitalRead(encoderBPin) & encoderBPress){ // If the encoderA button is pressed then released
     updated = false; // Updated bool used to determine if full screen needs to be updated or just certain parts depending on menu level
     encoderButtonBCheck(); // Determines long press or short press and updates state variables accordingly
   }
@@ -243,25 +255,33 @@ void initUI(){
   menuUpdate();
 }
 
-void initEEPROM(){
-  for(int i = 0; i<10; i++){
-    for(int j = 0; j<3; j++){        
-      byte paramByteA = EEPROM.read(i*6 + j*2);
-      byte paramByteB = EEPROM.read(i*6 + j*2 + 1);
-      presetParams[i][j] = paramByteA + (paramByteB * 256);
+void initEEPROM(){ // EEPROM loading, run at startup to initialize effect and parameter arrays
+  for(int i = 0; i<10; i++){ // Loop through all presets
+    for(int j = 0; j<3; j++){// Loop through max 3 parameters per effect
+      byte paramByteA = EEPROM.read(i*6 + j*2); // Read first byte of parameter value
+      byte paramByteB = EEPROM.read(i*6 + j*2 + 1); // read second byte of parameter value
+      presetParams[i][j] = paramByteA + (paramByteB * 256); // Store parameter value into list
     }
   }
+  for(int i = 0; i<10; i++){ // Preset effect loading
+    presetEffect[i] = EEPROM.read(70 + i); // Store preset effects into array
+  }
 }
+
 void saveEEPROM(){
-  for(int i = 0; i<10; i++){
+  
+  for(int i = 0; i<10; i++){ // Effect Parameter Saving
     for(int j = 0; j<3; j++){
       int paramVal = presetParams[i][j];
-      byte paramByteA = paramVal % 256;
+      byte paramByteA = paramVal % 256; // Convert parameter value into
       byte paramByteB = paramVal / 256;
       EEPROM.write(i*6 + j*2, paramByteA);
       EEPROM.write(i*6 + j*2 + 1, paramByteB);
     }
   }  
+  for(int i = 0; i<10; i++){
+    EEPROM.write(70 + i, presetEffect[i]);  
+  }
 }
 
 // Encoder A button logic contained within
@@ -276,37 +296,32 @@ void encoderButtonACheck(){
   pressDelay = releasedTime - pressedTime; // Compare to pressed time
   
   if(pressDelay > shortPressDelay){
+    if(menuLevel == 3){menuLevel = 1;}
     menuLevel--;
-    if(menuLevel > 2){menuLevel = 2;} // Limit max menu level to 2
     if(menuLevel < 0){menuLevel = 0;} // Limit min menu level to 0  
     encoderAPress = false;        
   } // Long press = back/return button
     
-  if((pressDelay <= shortPressDelay) && pressDelay > 100){ // Only count short presses between 100ms and 500ms
+  if((pressDelay < shortPressDelay) & pressDelay > 100){ // Only count short presses between 100ms and 500ms
     menuLevel++; // Short press = select/step into button
-
     if(menuLevel == 1){ // If stepping into preset menu, remember current preset
       if(encoderAPosition == 10){
           menuLevel = 3;
           encoderAPress = false;
           return;
-      }  
-      
+      }
+
       effectChange = T9PB_change_effect(currentEffect, presetEffect[encoderAPosition]);
       currentPreset = encoderAPosition;
       oldPreset = encoderAPosition;
       currentEffect = presetEffect[encoderAPosition];
     }
-    
-    if(menuLevel == 2){ // If stepping into effect menu, remember current effect
-    }
+  
     if(menuLevel > 2){menuLevel = 2;} // Limit max menu level to 2
     if(menuLevel < 0){menuLevel = 0;} // Limit min menu level to 0
-      
+  }
     encoderAPress = false;    
-    }
     
-
 }
 
 void encoderButtonBCheck(){
@@ -321,7 +336,6 @@ void encoderButtonBCheck(){
   if(pressDelay > shortPressDelay){saveEEPROM(); 
   Serial.print("saved");}
 
-    
   encoderBPress = false;
 }
 
@@ -627,6 +641,8 @@ void settingsMenuDraw(int x, int y){
     lcd.setCursor(0,3);
     lcd.print("E:");    
     lcd.setCursor(2,3);
+    lcd.print("          ");    
+    lcd.setCursor(2,3);    
     lcd.print(T9PB_get_effect_name(y).c_str());             
   }
 
@@ -647,108 +663,8 @@ void buttonAISR() {
   buttonAPress = true;
   pressedTime = millis();
 }
+
 void buttonBISR() {
   buttonBPress = true;
   pressedTime = millis();
-}
-
-void process_serial_commands(int* currEffect_p, int* prevEffect_p) {
-  if (Serial.available() > 0) {
-    char cmd = Serial.read();
-    if (cmd == 'V') {
-      float V = Serial.parseFloat();
-      if (V < 0.8) {
-        T9PB_hp_volume(V);
-        Serial.print("Set volume to: ");
-        Serial.println(V);
-      }
-    }
-    if (cmd == 'S') {
-      Serial.print("Memory usage: ");
-      Serial.println(AudioMemoryUsage());
-      Serial.print("Max memory usage: ");
-      Serial.println(AudioMemoryUsageMax());
-      Serial.print("CPU usage: ");
-      Serial.println(AudioProcessorUsage());
-      Serial.print("Max CPU usage: ");
-      Serial.println(AudioProcessorUsageMax());
-    }
-    if (cmd == 'R') {
-      AudioMemoryUsageMaxReset();
-      AudioProcessorUsageMaxReset();
-      Serial.println("Maximum stat values reset");
-    }
-    if (cmd == 'Q') {
-      Serial.print("Pre: ");
-      Serial.print(T9PB_peak_detect(0));
-      Serial.print("\tPost: ");
-      Serial.println(T9PB_peak_detect(1));
-    }
-    if (cmd == 'B') {
-      // activate bypass (effect 0)
-      T9PB_change_effect(*currEffect_p, 0);
-      *prevEffect_p = *currEffect_p;
-      *currEffect_p = 0;
-      Serial.println("Bypass active");
-    }
-    if (cmd == 'E') {
-      // activate arbitrary effect
-      int E = Serial.parseInt();
-      int tmp = T9PB_change_effect(*currEffect_p, E);
-      if (tmp < 0) {
-        // not a valid effect
-        Serial.println("ERROR: Invalid effect index");
-      } else{
-        // valid effect was activated
-        *prevEffect_p = *currEffect_p;
-        *currEffect_p = tmp;
-        Serial.print(T9PB_get_effect_name(*currEffect_p).c_str());
-        //Serial.print(effectObjects_a[*currEffect_p]->getEffectName().c_str());
-        Serial.println(" active");
-      }
-    }
-    if (cmd == 'a') {
-      float p = Serial.parseFloat();
-      T9PB_change_parameter(*currEffect_p, 1, p);
-      //effectObjects_a[*currEffect_p]->modParameter1(p);
-      Serial.print(T9PB_get_parameter_name(*currEffect_p, 1).c_str());
-      //Serial.print(effectObjects_a[*currEffect_p]->getParameterName(1).c_str());
-      Serial.print(": ");
-      Serial.println(p);
-    }
-    if (cmd == 'b') {
-      float p = Serial.parseFloat();
-      T9PB_change_parameter(*currEffect_p, 2, p);
-      //effectObjects_a[*currEffect_p]->modParameter2(p);
-      Serial.print(T9PB_get_parameter_name(*currEffect_p, 2).c_str());
-      //Serial.print(effectObjects_a[*currEffect_p]->getParameterName(2).c_str());
-      Serial.print(": ");
-      Serial.println(p);
-    }
-    if (cmd == 'c') {
-      float p = Serial.parseFloat();
-      T9PB_change_parameter(*currEffect_p, 3, p);
-      //effectObjects_a[*currEffect_p]->modParameter3(p);
-      Serial.print(T9PB_get_parameter_name(*currEffect_p, 3).c_str());
-      //Serial.print(effectObjects_a[*currEffect_p]->getParameterName(3).c_str());
-      Serial.print(": ");
-      Serial.println(p);
-    }
-    if (cmd == 'P') {
-      // print all available effects
-      for (int i = 0; i <= NUM_EFFECTS; i++) {
-        Serial.print(i);
-        Serial.print(": ");
-        Serial.println(T9PB_get_effect_name(i).c_str());
-      }
-    }
-    if (cmd == 'p') {
-      // print active effect parameters
-      for (int i = 1; i < 4; i++) {
-        Serial.print(i);
-        Serial.print(": ");
-        Serial.println(T9PB_get_parameter_name(*currEffect_p, i).c_str());
-      }
-    }
-  }
 }

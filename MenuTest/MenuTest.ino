@@ -89,7 +89,8 @@ boolean buttonAPress = false;
 boolean buttonBPress = false;
 
 // Button press timing variables
-const int shortPressDelay = 500;
+const int shortPressDelay = 400;
+const int pressDebounceTime = 50;
 int pressedTime = 0;
 int releasedTime = 0;
 int pressDelay = 0;
@@ -302,7 +303,7 @@ void encoderButtonACheck(){
     encoderAPress = false;        
   } // Long press = back/return button
     
-  if((pressDelay < shortPressDelay) & pressDelay > 100){ // Only count short presses between 100ms and 500ms
+  if((pressDelay < shortPressDelay) && (pressDelay > pressDebounceTime)){ // Only count short presses between 100ms and 500ms
     menuLevel++; // Short press = select/step into button
     if(menuLevel == 1){ // If stepping into preset menu, remember current preset
       if(encoderAPosition == 10){
@@ -358,7 +359,7 @@ void buttonACheck(){
     }
 
   // Short press logic
-  if((pressDelay <= shortPressDelay) && pressDelay > 100){ // Only count short presses between 100ms and 500ms
+  if((pressDelay <= shortPressDelay) && (pressDelay > pressDebounceTime)){ // Only count short presses between 100ms and 500ms
     encoderAPosition++;
     encoderA.write(encoderAPosition*4);
   }
@@ -396,7 +397,7 @@ void buttonBCheck(){
     }
 
   // Short press logic
-  if((pressDelay <= shortPressDelay) && pressDelay > 100){ // Only count short presses between 100ms and 500ms
+  if((pressDelay <= shortPressDelay) && (pressDelay > pressDebounceTime)){ // Only count short presses between 100ms and 500ms
 
 
     // Set current preset to the toggle preset
@@ -469,6 +470,7 @@ void menuUpdate(){
         break;
               
   }
+  /*
   Serial.print("Current Effect: ");
   Serial.println(currentEffect, DEC);
   Serial.print("EncoderAPos: ");
@@ -484,7 +486,8 @@ void menuUpdate(){
   Serial.print("EffectChange: ");
   Serial.println(effectChange, DEC);   
   Serial.print("ParamChange: ");
-  Serial.println(paramChange, DEC);   
+  Serial.println(paramChange, DEC);
+  */
  }
 
 
@@ -649,6 +652,7 @@ void settingsMenuDraw(int x, int y){
 
 // Encoder A Button ISR
 void encoderAISR() {
+  //Serial.println("Pressed");
   encoderAPress = true;
   pressedTime = millis();
 }

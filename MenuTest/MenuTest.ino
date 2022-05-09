@@ -55,19 +55,26 @@
 #include <Encoder.h>
 #include <string>
 #include <EEPROM.h>
+#include <Bounce.h>
 
 unsigned int EEPROMParameters = 0;
 
 
 // GUItool: end automatically generated code
 int currEffect = 0;
-int prevEffect;
+int prevEffect = 0;
 const int myInput = AUDIO_INPUT_LINEIN;
 
-int encoderAPin = 4; // Encoder A button connected to pin 4
+
 Encoder encoderA(5, 6); // Encoder A on pins 5,6
-int encoderBPin = 1; // Encoder A button connected to pin 1
+
 Encoder encoderB(2, 3); // Encoder B on pins 2,3
+
+int encoderAPin = 4; // Encoder A button connected to pin 4
+int encoderBPin = 1; // Encoder A button connected to pin 1
+int buttonAPin = 12;
+int buttonBPin = 11;
+
 
 LiquidCrystal_I2C lcd(0x27, 20, 4);  // set the LCD address to 0x27 for a 16 chars and 2 line display
 
@@ -77,23 +84,25 @@ int oldPositionA = 0;
 int encoderBPosition = 0; // Current value of encoder B used only for effect menu parameter B changes
 int oldPositionB = 0;
 
+Bounce encoderAButton = Bounce(encoderAPin, 10);
+byte encoderAPress = HIGH;
 
-boolean encoderAPress = false;
+Bounce encoderBButton = Bounce(encoderBPin, 10);
+byte encoderBPress = HIGH;
 
-boolean encoderBPress = false;
+Bounce buttonA = Bounce(buttonAPin, 10);
+byte buttonBPress = HIGH;
+
+Bounce buttonB = Bounce(buttonBPin, 10);
+byte buttonAPress = HIGH;
 
 // Footswitch variables
-int buttonAPin = 12;
-int buttonBPin = 11;
-boolean buttonAPress = false;
-boolean buttonBPress = false;
+
 
 // Button press timing variables
-const int shortPressDelay = 400;
-const int pressDebounceTime = 50;
-int pressedTime = 0;
-int releasedTime = 0;
-int pressDelay = 0;
+const int longPressDelay = 400;
+elapsedMillis pressedTime;
+
 
 // Menu "State Machine" Variables
 int menuScroll = 0; // Used for scrolling through the main menu
@@ -187,22 +196,43 @@ void loop() {
     }
   }
 
-  if(digitalRead(encoderAPin) & encoderAPress){ // If the encoderA button is pressed then released
-    updated = false; // Updated bool used to determine if full screen needs to be updated or just certain parts depending on menu level
-    encoderButtonACheck(); // Determines long press or short press and updates state variables accordingly
-  }
-  if(digitalRead(encoderBPin) & encoderBPress){ // If the encoderA button is pressed then released
-    updated = false; // Updated bool used to determine if full screen needs to be updated or just certain parts depending on menu level
-    encoderButtonBCheck(); // Determines long press or short press and updates state variables accordingly
+  if(encoderAButton.update()){ // If the encoderA button is changed
+    if(encoderAButton.fallingEdge()){
+      pressedTime = 0;
+    }
+    if(encoderAButton.risingEdge()){
+      updated = false; // Updated bool used to determine if full screen needs to be updated or just certain parts depending on menu level
+      encoderButtonACheck(); // Determines long press or short press and updates state variables accordingly   
+    }
+  }  
+  if(encoderBButton.update()){ // If the encoderA button is changed
+    if(encoderBButton.fallingEdge()){
+      pressedTime = 0;
+    }
+    if(encoderBButton.risingEdge()){
+      updated = false; // Updated bool used to determine if full screen needs to be updated or just certain parts depending on menu level
+      encoderButtonBCheck(); // Determines long press or short press and updates state variables accordingly   
+    }
   }
   
-  if(digitalRead(buttonAPin) & buttonAPress){ // If the select footswitch (buttonA) is pressed then released
-    updated = false;
-    buttonACheck(); // Determines long press or short press and updates the state variables according to the select button functionality
+  if(buttonA.update()){ // If the encoderA button is changed
+    if(buttonA.fallingEdge()){
+      pressedTime = 0;
+    }
+    if(buttonA.risingEdge()){
+      updated = false; // Updated bool used to determine if full screen needs to be updated or just certain parts depending on menu level
+      buttonACheck(); // Determines long press or short press and updates state variables accordingly   
+    }
   }
-  if(digitalRead(buttonBPin) & buttonBPress){ // If the toggle footswitch (buttonB) is pressed then released
-    updated = false;
-    buttonBCheck(); // Determines long press or short press and updates the state variables according to the toggle button functionality
+  
+  if(buttonB.update()){ // If the encoderA button is changed
+    if(buttonB.fallingEdge()){
+      pressedTime = 0;
+    }
+    if(buttonB.risingEdge()){
+      updated = false; // Updated bool used to determine if full screen needs to be updated or just certain parts depending on menu level
+      buttonBCheck(); // Determines long press or short press and updates state variables accordingly   
+    }
   }
 
 
@@ -230,20 +260,21 @@ void initUI(){
   //sgtl5000_1.volume(0.3);
 
   // Setup encoderA button interrupt
+  
   pinMode(encoderAPin, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(encoderAPin), encoderAISR, FALLING);
+
 
   // Setup encoderB button interrupt
   pinMode(encoderBPin, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(encoderBPin), encoderBISR, FALLING);
+
 
   // Setup select footswitch interrupt (ButtonA)
   pinMode(buttonAPin, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(buttonAPin), buttonAISR, FALLING);  
+
 
   // Setup toggle footswitch interrupt (ButtonB)
   pinMode(buttonBPin, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(buttonBPin), buttonBISR, FALLING);
+
   
   // Initialize encoder positions
   encoderA.write(0);
@@ -292,18 +323,17 @@ void saveEEPROM(){
 // Short press: Select currently hovered menu object increases menu level
 // Long press: Functions as a back or return button, decreases menu level
 void encoderButtonACheck(){
+
+  // Serial.println(pressedTime);
   
-  releasedTime = millis(); // Check released time
-  pressDelay = releasedTime - pressedTime; // Compare to pressed time
-  
-  if(pressDelay > shortPressDelay){
+  if(pressedTime > longPressDelay){
     if(menuLevel == 3){menuLevel = 1;}
     menuLevel--;
     if(menuLevel < 0){menuLevel = 0;} // Limit min menu level to 0  
     encoderAPress = false;        
   } // Long press = back/return button
     
-  if((pressDelay < shortPressDelay) && (pressDelay > pressDebounceTime)){ // Only count short presses between 100ms and 500ms
+  if(pressedTime < longPressDelay){ // Only count short presses between 100ms and 500ms
     menuLevel++; // Short press = select/step into button
     if(menuLevel == 1){ // If stepping into preset menu, remember current preset
       if(encoderAPosition == 10){
@@ -320,22 +350,22 @@ void encoderButtonACheck(){
   
     if(menuLevel > 2){menuLevel = 2;} // Limit max menu level to 2
     if(menuLevel < 0){menuLevel = 0;} // Limit min menu level to 0
+    
   }
-    encoderAPress = false;    
+     encoderAPress = false;   
     
 }
 
 void encoderButtonBCheck(){
-  
-  releasedTime = millis(); // Check released time
-  pressDelay = releasedTime - pressedTime; // Compare to pressed time
 
   // If encoder button is pressed wait till unpressed and check time
   // If encoder is short pressed, step into next menu level
   // If encoder is long pressed, return to previous menu level
       
-  if(pressDelay > shortPressDelay){saveEEPROM(); 
-  Serial.print("saved");}
+  if(pressedTime > longPressDelay){
+    saveEEPROM(); 
+    Serial.print("saved");
+  }
 
   encoderBPress = false;
 }
@@ -347,11 +377,8 @@ void encoderButtonBCheck(){
 // allowing a new preset to be choosen
 void buttonACheck(){
   
-  releasedTime = millis(); // Check released time
-  pressDelay = releasedTime - pressedTime; // Compare to pressed time
-
   // Long press logic    
-  if(pressDelay > shortPressDelay){
+  if(pressedTime > longPressDelay){
     menuLevel++;
     if(menuLevel == 1){ // If stepping into preset menu, remember current preset
       currentPreset = encoderAPosition;
@@ -359,7 +386,7 @@ void buttonACheck(){
     }
 
   // Short press logic
-  if((pressDelay <= shortPressDelay) && (pressDelay > pressDebounceTime)){ // Only count short presses between 100ms and 500ms
+  if(pressedTime <= longPressDelay){ // Only count short presses between 100ms and 500ms
     encoderAPosition++;
     encoderA.write(encoderAPosition*4);
   }
@@ -380,11 +407,7 @@ void buttonACheck(){
 // in the main menu
 void buttonBCheck(){
   
-  releasedTime = millis(); // Check released time
-  pressDelay = releasedTime - pressedTime; // Compare to pressed time
-
-  // Long press logic
-  if(pressDelay > shortPressDelay){
+  if(pressedTime > longPressDelay){
     if(menuLevel == 0){ // Only able to add presets to toggle list in main menu
       // Use current encoderAPosition/selected preset number and add to toggle list
       // Remove index 0, add selected preset to the end of the togglePresets array
@@ -397,7 +420,7 @@ void buttonBCheck(){
     }
 
   // Short press logic
-  if((pressDelay <= shortPressDelay) && (pressDelay > pressDebounceTime)){ // Only count short presses between 100ms and 500ms
+  if(pressedTime <= longPressDelay){ // Only count short presses between 100ms and 500ms
 
 
     // Set current preset to the toggle preset
@@ -648,27 +671,3 @@ void settingsMenuDraw(int x, int y){
     lcd.setCursor(2,3);    
     lcd.print(T9PB_get_effect_name(y).c_str());             
   }
-
-
-// Encoder A Button ISR
-void encoderAISR() {
-  //Serial.println("Pressed");
-  encoderAPress = true;
-  pressedTime = millis();
-}
-
-// Encoder B Button ISR
-void encoderBISR() {
-  encoderBPress = true;
-  pressedTime = millis();
-}
-
-void buttonAISR() {
-  buttonAPress = true;
-  pressedTime = millis();
-}
-
-void buttonBISR() {
-  buttonBPress = true;
-  pressedTime = millis();
-}

@@ -154,13 +154,21 @@ void loop() {
     oldPositionA = encoderAPosition; // Store position
     if(menuLevel == 2){ // If entering the parameter menu limit encoder A values to number of parameters
       paramNum = T9PB_get_parameter_num(currentEffect) - 1;
-      if(encoderAPosition > paramNum){encoderA.write(paramNum*4); encoderAPosition = paramNum;} // If read position is greater than 2 set position to 0
-      if(encoderAPosition < 0){encoderA.write(0); encoderAPosition = 0;}
+      if(encoderAPosition > paramNum){
+        encoderA.write(paramNum*4);
+        encoderAPosition = paramNum;
+      } // If read position is greater than 2 set position to 0
+      if(encoderAPosition < 0){
+        encoderA.write(0);
+        encoderAPosition = 0;
+      }
       encoderBPosition = presetParams[currentPreset][encoderAPosition]; // If in parameter menu, update encoderB position to selected parameter value
       encoderB.write(presetParams[currentPreset][encoderAPosition] * 4);
-      }
+    }
 
     if(menuLevel == 3){
+      if(encoderAPosition > 9){encoderA.write(0); encoderAPosition = 0;} // If read position is greater than 9 set position to 0
+      if(encoderAPosition < 0){encoderA.write(36); encoderAPosition = 9;} // If read position is less than 0 set position to 9
       encoderBPosition = presetEffect[encoderAPosition]; // If in parameter menu, update encoderB position to selected parameter value
       encoderB.write(presetEffect[encoderAPosition] * 4);        
     }  
@@ -248,7 +256,7 @@ void initUI(){
   lcd.init();
   lcd.backlight();
   lcd.clear();
-  lcd.setCursor(0,0);
+  lcd.setCursor(5,1);
   lcd.print("T9 UI Test");
 
   // Setup audio passthrough

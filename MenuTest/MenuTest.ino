@@ -35,6 +35,10 @@
 #include <EEPROM.h>
 #include <Bounce.h>
 
+elapsedMillis peakCheckTime;
+#define IN_PEAK_LED 14
+#define OUT_PEAK_LED 22
+
 // Audio library variables
 int currEffect = 0;
 int prevEffect = 0;
@@ -215,10 +219,27 @@ void loop() {
     }
   }
 
-
-}
+    if (peakCheckTime >= 100) {
+    peakCheckTime -= 100;
+    if (T9PB_peak_detect(0) >= 0.98) {
+      digitalWrite(IN_PEAK_LED, HIGH);
+    } else {
+      digitalWrite(IN_PEAK_LED, LOW);
+    }
+    if (T9PB_peak_detect(1) >= 0.98) {
+      digitalWrite(OUT_PEAK_LED, HIGH);
+    } else {
+      digitalWrite(OUT_PEAK_LED, LOW);
+    }
+  }
+} // end loop
 
 void initUI(){
+
+  pinMode(IN_PEAK_LED, OUTPUT);
+  pinMode(OUT_PEAK_LED, OUTPUT);
+  digitalWrite(IN_PEAK_LED, HIGH);
+  digitalWrite(OUT_PEAK_LED, HIGH);
 
   T9PB_begin();
   AudioMemory(500);

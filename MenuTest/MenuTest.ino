@@ -301,11 +301,6 @@ void encoderButtonACheck(){
           menuLevel = 3;
           return;
       }
-<<<<<<< HEAD
-=======
-
-      effectChange = T9PB_change_effect(currentEffect, presetEffect[encoderAPosition]);
->>>>>>> parent of 8c8ebf8 (Update MenuTest.ino)
       currentPreset = encoderAPosition;
     }
     if(menuLevel == 2){

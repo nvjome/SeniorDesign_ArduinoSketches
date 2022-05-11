@@ -59,10 +59,10 @@ const int longPressDelay = 400;
 const int debounceTime = 10;
 elapsedMillis pressedTime;
 // Bounce library setup
-Bounce encoderAButton = Bounce(encoderAPin, debounceTime);
-Bounce encoderBButton = Bounce(encoderBPin, debounceTime);
-Bounce buttonA = Bounce(buttonAPin, debounceTime);
-Bounce buttonB = Bounce(buttonBPin, debounceTime);
+Bounce encoderAButton = Bounce(encoderAPin, 20);
+Bounce encoderBButton = Bounce(encoderBPin, 20);
+Bounce buttonA = Bounce(buttonAPin, 30);
+Bounce buttonB = Bounce(buttonBPin, 30);
 byte encoderAPress = HIGH;
 byte encoderBPress = HIGH;
 byte buttonBPress = HIGH;
@@ -169,11 +169,11 @@ void loop() {
 
   if(oldPreset != currentPreset){ // If current preset is updated by a button press
     //menuUpdate(); // Update the menu
-    oldPreset = currentPreset; // Update the oldPreset value 
+    effectChange = T9PB_change_effect(presetEffect[oldPreset], presetEffect[currentPreset]);
     for(int i = 0; i< T9PB_get_parameter_num(currentEffect); i++){
     paramChange = T9PB_change_parameter(presetEffect[currentPreset], i, presetParams[currentPreset][i]);
-    effectChange = T9PB_change_effect(currentEffect, presetEffect[encoderAPosition]);
     }
+    oldPreset = currentPreset; // Update the oldPreset value 
   }
 
   if(encoderAButton.update()){
@@ -289,7 +289,7 @@ void encoderButtonACheck(){
     if(menuLevel == 3){menuLevel = 1;}
     menuLevel--;
     if(menuLevel < 0){menuLevel = 0;} // Limit min menu level to 0  
-    encoderAPress = false;        
+    
   } // Long press = back/return button
     
   if(pressedTime < longPressDelay){ // Only count short presses between 100ms and 500ms
@@ -297,21 +297,20 @@ void encoderButtonACheck(){
     if(menuLevel == 1){ // If stepping into preset menu, remember current preset
       if(encoderAPosition == 10){
           menuLevel = 3;
-          encoderAPress = false;
           return;
       }
-
-      
       currentPreset = encoderAPosition;
-      oldPreset = encoderAPosition;
-      currentEffect = presetEffect[encoderAPosition];
+    }
+    if(menuLevel == 2){
+      encoderBPosition = presetParams[currentPreset][encoderAPosition]; // If in parameter menu, update encoderB position to selected parameter value
+      encoderB.write(presetParams[currentPreset][encoderAPosition] * 4);
     }
   
     if(menuLevel > 2){menuLevel = 2;} // Limit max menu level to 2
     if(menuLevel < 0){menuLevel = 0;} // Limit min menu level to 0
     
   }
-     encoderAPress = false;   
+
     
 }
 
@@ -327,7 +326,7 @@ void encoderButtonBCheck(){
     lcd.print("saved");
   }
 
-  encoderBPress = false;
+
 }
 
 // Select footswitch/buttonA logic contained within
@@ -354,7 +353,6 @@ void buttonACheck(){
   // Menu level limits and wrapping
   if(menuLevel > 1){menuLevel = 0;} // Limit max menu level to 1 reset to 0
   if(menuLevel < 0){menuLevel = 0;} // Limit min menu level to 0
-  buttonAPress = false;
 }
 
 
@@ -395,7 +393,6 @@ void buttonBCheck(){
     
   if(menuLevel > 1){menuLevel = 0;} // Limit max menu level to 1 reset to 0
   if(menuLevel < 0){menuLevel = 0;} // Limit min menu level to 0
-  buttonBPress = false;
 }
 
 

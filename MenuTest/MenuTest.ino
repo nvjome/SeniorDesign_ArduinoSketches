@@ -102,6 +102,7 @@ int togglePresets[3] = {0, 1, 2};
 
 String currentEffectName;
 
+
 void setup() {
   initUI(); // Initialize LCD, Audio adapter, Button interrupts
   initEEPROM();
@@ -169,17 +170,10 @@ void loop() {
   }
 
   if(oldPreset != currentPreset){ // If current preset is updated by a button press
-<<<<<<< HEAD
-    //menuUpdate(); // Update the menu
-    effectChange = T9PB_change_effect(presetEffect[oldPreset], presetEffect[currentPreset]);
-    for(int i = 0; i< T9PB_get_parameter_num(currentEffect); i++){
-    paramChange = T9PB_change_parameter(presetEffect[currentPreset], i, presetParams[currentPreset][i]);
-=======
     // menuUpdate(); // Update the menu
     oldPreset = currentPreset; // Update the oldPreset value 
     for(int i = 0; i< T9PB_get_parameter_num(currentEffect); i++){
     paramChange = T9PB_change_parameter(presetEffect[currentPreset], i, presetParams[currentPreset][i]);  
->>>>>>> parent of 8c8ebf8 (Update MenuTest.ino)
     }
     oldPreset = currentPreset; // Update the oldPreset value 
   }

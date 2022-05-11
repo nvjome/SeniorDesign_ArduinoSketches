@@ -38,7 +38,6 @@
 // Audio library variables
 int currEffect = 0;
 int prevEffect = 0;
-const int myInput = AUDIO_INPUT_LINEIN;
 
 //Encoder pin assignments
 Encoder encoderA(5, 6);
@@ -169,17 +168,10 @@ void loop() {
   }
 
   if(oldPreset != currentPreset){ // If current preset is updated by a button press
-<<<<<<< HEAD
     //menuUpdate(); // Update the menu
     effectChange = T9PB_change_effect(presetEffect[oldPreset], presetEffect[currentPreset]);
     for(int i = 0; i< T9PB_get_parameter_num(currentEffect); i++){
     paramChange = T9PB_change_parameter(presetEffect[currentPreset], i, presetParams[currentPreset][i]);
-=======
-    // menuUpdate(); // Update the menu
-    oldPreset = currentPreset; // Update the oldPreset value 
-    for(int i = 0; i< T9PB_get_parameter_num(currentEffect); i++){
-    paramChange = T9PB_change_parameter(presetEffect[currentPreset], i, presetParams[currentPreset][i]);  
->>>>>>> parent of 8c8ebf8 (Update MenuTest.ino)
     }
     oldPreset = currentPreset; // Update the oldPreset value 
   }
@@ -235,8 +227,8 @@ void initUI(){
   lcd.init();
   lcd.backlight();
   lcd.clear();
-  lcd.setCursor(5,1);
-  lcd.print("T9 UI Test");
+  lcd.setCursor(2,1);
+  lcd.print("T9 Effects Pedal");
 
   pinMode(encoderAPin, INPUT_PULLUP);
   pinMode(encoderBPin, INPUT_PULLUP);
@@ -307,11 +299,6 @@ void encoderButtonACheck(){
           menuLevel = 3;
           return;
       }
-<<<<<<< HEAD
-=======
-
-      effectChange = T9PB_change_effect(currentEffect, presetEffect[encoderAPosition]);
->>>>>>> parent of 8c8ebf8 (Update MenuTest.ino)
       currentPreset = encoderAPosition;
     }
     if(menuLevel == 2){
@@ -335,7 +322,8 @@ void encoderButtonBCheck(){
       
   if(pressedTime > longPressDelay){
     saveEEPROM(); 
-    Serial.print("saved");
+    lcd.setCursor(15,0);
+    lcd.print("saved");
   }
 
 
@@ -400,6 +388,7 @@ void buttonBCheck(){
     if(togglePresetIndex < 0){togglePresetIndex = 2;}    
     // Make sure we are in the preset menu state    
     menuLevel = 1;
+    menuUpdate();
   }
     
   if(menuLevel > 1){menuLevel = 0;} // Limit max menu level to 1 reset to 0
@@ -412,8 +401,8 @@ void menuUpdate(){
   switch(menuLevel){ // Call correct menu update function based on menu level
     
       case 0: // Main Menu
-        // In main menu selection is limited to 0-9, with wrap around
-        if(encoderAPosition > 10){encoderA.write(0); encoderAPosition = 0;} // If read position is greater than 9 set position to 0
+        // In main menu selection is limited to 0-10, with wrap around
+        if(encoderAPosition > 10){encoderA.write(0); encoderAPosition = 0;} // If read position is greater than 10 set position to 0
         if(encoderAPosition < 0){encoderA.write(40); encoderAPosition = 10;} // If read position is less than 0 set position to 9
         mainMenuDraw(encoderAPosition);
         break;
@@ -438,8 +427,6 @@ void menuUpdate(){
 
       case 3:
         // Settings menu, encoder A selects preset, encoder B selects effect
-        if(encoderAPosition > 9){encoderA.write(0); encoderAPosition = 0;} // If read position is greater than 9 set position to 0
-        if(encoderAPosition < 0){encoderA.write(36); encoderAPosition = 9;} // If read position is less than 0 set position to 9
         if(encoderBPosition > 4){encoderB.write(0); encoderBPosition = 0;} // If read position is greater than 9 set position to 0
         if(encoderBPosition < 0){encoderB.write(16); encoderBPosition = 4;} // If read position is less than 0 set position to 9
         settingsMenuDraw(encoderAPosition, encoderBPosition);

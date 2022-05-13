@@ -180,6 +180,7 @@ void loop() {
     for(int i = 0; i< T9PB_get_parameter_num(currentEffect); i++){
     paramChange = T9PB_change_parameter(presetEffect[currentPreset], i, presetParams[currentPreset][i]);  
     }
+    menuUpdate();
   }
 
   if(encoderAButton.update()){

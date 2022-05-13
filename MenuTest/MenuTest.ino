@@ -181,8 +181,6 @@ void loop() {
     for(int i = 0; i< T9PB_get_parameter_num(currentEffect); i++){
     paramChange = T9PB_change_parameter(presetEffect[currentPreset], i, presetParams[currentPreset][i]);  
     }
-    Serial.print(effectChange);
-    
     menuUpdate();
   }
 
@@ -457,7 +455,6 @@ void menuUpdate(){
         presetParams[currentPreset][encoderAPosition] = encoderBPosition;
         effectMenuDraw(encoderAPosition, encoderBPosition);
         paramChange = T9PB_change_parameter(currentEffect, encoderAPosition + 1, encoderBPosition);
-        Serial.print(paramChange);
         break;
 
       case 3:

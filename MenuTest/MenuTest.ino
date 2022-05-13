@@ -175,6 +175,8 @@ void loop() {
   if(oldPreset != currentPreset){ // If current preset is updated by a button press
     // menuUpdate(); // Update the menu
     oldPreset = currentPreset; // Update the oldPreset value 
+    currentEffect = presetEffect[currentPreset];
+    effectChange = T9PB_change_effect(currentEffect, presetEffect[currentPreset]);
     for(int i = 0; i< T9PB_get_parameter_num(currentEffect); i++){
     paramChange = T9PB_change_parameter(presetEffect[currentPreset], i, presetParams[currentPreset][i]);  
     }
@@ -321,11 +323,7 @@ void encoderButtonACheck(){
           encoderAPress = false;
           return;
       }
-
-      effectChange = T9PB_change_effect(currentEffect, presetEffect[encoderAPosition]);
       currentPreset = encoderAPosition;
-      oldPreset = encoderAPosition;
-      currentEffect = presetEffect[encoderAPosition];
     }
   
     if(menuLevel > 2){menuLevel = 2;} // Limit max menu level to 2
@@ -344,7 +342,8 @@ void encoderButtonBCheck(){
       
   if(pressedTime > longPressDelay){
     saveEEPROM(); 
-    Serial.print("saved");
+    lcd.setCursor(15,0);
+    lcd.print("saved");
   }
 
   encoderBPress = false;

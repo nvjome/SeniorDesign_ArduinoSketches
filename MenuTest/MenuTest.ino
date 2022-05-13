@@ -181,6 +181,8 @@ void loop() {
     for(int i = 0; i< T9PB_get_parameter_num(currentEffect); i++){
     paramChange = T9PB_change_parameter(presetEffect[currentPreset], i, presetParams[currentPreset][i]);  
     }
+    Serial.print(effectChange);
+    
     menuUpdate();
   }
 
@@ -455,14 +457,15 @@ void menuUpdate(){
         presetParams[currentPreset][encoderAPosition] = encoderBPosition;
         effectMenuDraw(encoderAPosition, encoderBPosition);
         paramChange = T9PB_change_parameter(currentEffect, encoderAPosition + 1, encoderBPosition);
+        Serial.print(paramChange);
         break;
 
       case 3:
         // Settings menu, encoder A selects preset, encoder B selects effect
         if(encoderAPosition > 9){encoderA.write(0); encoderAPosition = 0;} // If read position is greater than 9 set position to 0
         if(encoderAPosition < 0){encoderA.write(36); encoderAPosition = 9;} // If read position is less than 0 set position to 9
-        if(encoderBPosition > 4){encoderB.write(0); encoderBPosition = 0;} // If read position is greater than 9 set position to 0
-        if(encoderBPosition < 0){encoderB.write(16); encoderBPosition = 4;} // If read position is less than 0 set position to 9
+        if(encoderBPosition > 5){encoderB.write(0); encoderBPosition = 0;} // If read position is greater than 9 set position to 0
+        if(encoderBPosition < 0){encoderB.write(20); encoderBPosition = 5;} // If read position is less than 0 set position to 9
         settingsMenuDraw(encoderAPosition, encoderBPosition);
         break;
               

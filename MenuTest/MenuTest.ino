@@ -129,13 +129,13 @@ void loop() {
     if(menuLevel == 2){ // If entering the parameter menu limit encoder A values to number of parameters
       paramNum = T9PB_get_parameter_num(currentEffect) - 1;
       if(encoderAPosition > paramNum){
-        encoderA.write(paramNum*4);
-        encoderAPosition = paramNum;
+        encoderA.write(0);
+        encoderAPosition = 0;
       } 
       // If read position is greater than 2 set position to 0
       if(encoderAPosition < 0){
-        encoderA.write(0);
-        encoderAPosition = 0;
+        encoderA.write(paramNum * 4);
+        encoderAPosition = paramNum;
       }
       encoderBPosition = presetParams[currentPreset][encoderAPosition]; // If in parameter menu, update encoderB position to selected parameter value
       encoderB.write(presetParams[currentPreset][encoderAPosition] * 4);
@@ -157,12 +157,13 @@ void loop() {
   } // End position update
 
   if((encoderBPosition != oldPositionB) && (menuLevel == 3)) { // If encoderB position change, update menu only for menulevel 3 (effect parameter changes)
-    menuUpdate(); // Update Menu
+    
     presetEffect[encoderAPosition] = encoderBPosition;
     oldPositionB = encoderBPosition; // Store position
     for(int i = 0; i<3; i++){
     presetParams[encoderAPosition][i] = 10;  
     }
+    menuUpdate(); // Update Menu
   } // End position update
 
   if(oldMenuLevel != menuLevel){ // If menu level is updated by a button press
@@ -362,6 +363,11 @@ void buttonACheck(){
     menuLevel++;
     if(menuLevel == 1){ // If stepping into preset menu, remember current preset
       currentPreset = encoderAPosition;
+      if(encoderAPosition == 10){
+          menuLevel = 3;
+          encoderAPress = false;
+          return;
+      }      
     }
     }
 
@@ -372,9 +378,11 @@ void buttonACheck(){
   }
 
   // Menu level limits and wrapping
+  buttonAPress = false;
+  if(menuLevel == 3){return;}
   if(menuLevel > 1){menuLevel = 0;} // Limit max menu level to 1 reset to 0
   if(menuLevel < 0){menuLevel = 0;} // Limit min menu level to 0
-  buttonAPress = false;
+  
 }
 
 
@@ -388,6 +396,7 @@ void buttonACheck(){
 void buttonBCheck(){
   
   if(pressedTime > longPressDelay){
+    if(menuLevel == 3){encoderBPosition++; buttonBPress = false; return;}
     if(menuLevel == 0){ // Only able to add presets to toggle list in main menu
       // Use current encoderAPosition/selected preset number and add to toggle list
       // Remove index 0, add selected preset to the end of the togglePresets array
@@ -402,6 +411,7 @@ void buttonBCheck(){
   // Short press logic
   if(pressedTime <= longPressDelay){ // Only count short presses between 100ms and 500ms
     // Set current preset to the toggle preset
+    if(menuLevel == 3){encoderBPosition++; buttonBPress = false; return;}
     currentPreset = togglePresets[togglePresetIndex];
     // Increment toggle preset index
     togglePresetIndex++;

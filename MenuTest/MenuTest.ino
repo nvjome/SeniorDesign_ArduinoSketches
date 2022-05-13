@@ -66,8 +66,8 @@ elapsedMillis pressedTime;
 // Bounce library setup
 Bounce encoderAButton = Bounce(encoderAPin, debounceTime);
 Bounce encoderBButton = Bounce(encoderBPin, debounceTime);
-Bounce buttonA = Bounce(buttonAPin, debounceTime);
-Bounce buttonB = Bounce(buttonBPin, debounceTime);
+Bounce buttonA = Bounce(buttonAPin, 100);
+Bounce buttonB = Bounce(buttonBPin, 100);
 byte encoderAPress = HIGH;
 byte encoderBPress = HIGH;
 byte buttonBPress = HIGH;
